@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bivio</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand" title="Bivio — editor di librogame">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 22V13M12 13L5 4M12 13l7-9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.2" fill="currentColor"/></svg>
+        <span>Bivio</span>
+      </div>
+      <div class="doc">
+        <input id="bookTitle" class="book-title" spellcheck="false" aria-label="Titolo del libro" />
+        <span id="fileName" class="file-name"></span>
+      </div>
+      <nav class="tabs" role="tablist">
+        <button data-view="write" class="active" title="Scrivi (Ctrl/⌘+1)">Scrivi</button>
+        <button data-view="map" title="Mappa (Ctrl/⌘+2)">Mappa</button>
+        <button data-view="play" title="Gioca (Ctrl/⌘+3)">Gioca</button>
+        <button data-view="check" title="Controlli (Ctrl/⌘+4)">Controlli <span id="issueBadge" class="badge" hidden></span></button>
+        <button data-view="book" title="Libro (Ctrl/⌘+5)">Libro</button>
+      </nav>
+      <div class="actions">
+        <button id="btnUndo" class="icon" title="Annulla l'ultima operazione sulla struttura (rinomina, elimina, rimescola…)" disabled>↶</button>
+        <button id="btnNew" title="Nuovo libro">Nuovo</button>
+        <button id="btnOpen" title="Apri (Ctrl/⌘+O)">Apri</button>
+        <button id="btnSave" class="primary" title="Salva (Ctrl/⌘+S) · Salva con nome (Ctrl/⌘+Maiusc+S)">Salva</button>
+        <div class="menu-wrap">
+          <button id="btnExport" aria-haspopup="true">Esporta ▾</button>
+          <div id="exportMenu" class="menu" hidden>
+            <div class="menu-label">Per leggere a schermo</div>
+            <button data-export="pdf">PDF <small>con link cliccabili</small></button>
+            <button data-export="docx">Word (.docx) <small>con link cliccabili</small></button>
+            <button data-export="epub">ePub <small>per e-reader</small></button>
+            <button data-export="html">Pagina web (.html)</button>
+            <button data-export="txt">Testo semplice (.txt)</button>
+            <hr />
+            <div class="menu-label">Per la stampa</div>
+            <button data-export="docx-print">Word (.docx) <small>senza link, tutto nero</small></button>
+            <button data-export="pdf-print">PDF <small>senza link, tutto nero</small></button>
+            <hr />
+            <button data-export="png">Mappa come immagine (.png)</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="body">
+      <aside class="sidebar">
+        <div class="side-search">
+          <input id="search" type="search" placeholder="Cerca numero, nome, testo…" title="Cerca (Ctrl/⌘+F). Invio apre il primo risultato." />
+        </div>
+        <div id="tagFilter" class="tag-filter"></div>
+        <ul id="parList" class="par-list" role="listbox" aria-label="Paragrafi"></ul>
+        <div class="side-foot">
+          <button id="btnAdd" class="wide" title="Nuovo paragrafo (Ctrl/⌘+Maiusc+N)">+ Nuovo paragrafo</button>
+          <div id="stats" class="stats"></div>
+        </div>
+      </aside>
+
+      <main>
+        <!-- SCRIVI -->
+        <section id="view-write" class="view active">
+          <div id="noPar" class="empty-state" hidden>Nessun paragrafo. Creane uno con “+ Nuovo paragrafo”.</div>
+          <div id="editor" class="editor">
+            <div class="ed-head">
+              <div class="nav-btns">
+                <button id="navBack" class="icon" title="Indietro (Alt+←)">‹</button>
+                <button id="navFwd" class="icon" title="Avanti (Alt+→)">›</button>
+              </div>
+              <label class="num-field" title="Numero del paragrafo. Se è già usato, i due paragrafi si scambiano.">§<input id="pNumber" type="number" min="1" /></label>
+              <input id="pKey" class="key-field" spellcheck="false" title="Nome (chiave) del paragrafo: si usa nei link come [[nome]]. Rinominandolo, i link si aggiornano da soli." />
+              <select id="pType" title="Tipo di paragrafo"></select>
+              <label class="check" title="Il numero resta fisso quando si rimescola"><input id="pFixed" type="checkbox" /> fisso</label>
+              <button id="btnStart" class="pill" title="Imposta come paragrafo iniziale"></button>
+              <span class="grow"></span>
+              <button id="btnDelete" class="danger-ghost" title="Elimina paragrafo">Elimina</button>
+            </div>
+            <div class="ed-tags">
+              <input id="pTags" spellcheck="false" placeholder="#hashtag per raggruppare (es. #bosco #combattimento)" />
+            </div>
+            <div class="ed-toolbar">
+              <button data-fmt="bold" title="Grassetto (Ctrl/⌘+B)"><b>G</b></button>
+              <button data-fmt="italic" title="Corsivo (Ctrl/⌘+I)"><i>C</i></button>
+              <button data-fmt="link" title="Inserisci link (Ctrl/⌘+K). Oppure scrivi [[">↪ Link</button>
+              <span class="hint">Scrivi <code>[[</code> per collegare un paragrafo · una riga vuota separa i capoversi</span>
+              <span class="grow"></span>
+              <span id="wordCount" class="hint"></span>
+            </div>
+            <div class="ed-main">
+              <div class="text-wrap">
+                <textarea id="pText" spellcheck="true" lang="it" placeholder="Scrivi il paragrafo…"></textarea>
+                <div id="ac" class="autocomplete" hidden></div>
+              </div>
+              <aside class="links-panel">
+                <h3>Uscite</h3>
+                <ul id="outLinks" class="link-list"></ul>
+                <h3>Entrate</h3>
+                <ul id="inLinks" class="link-list"></ul>
+                <details class="notes">
+                  <summary>Note per l'autore</summary>
+                  <textarea id="pNotes" placeholder="Appunti che non finiscono nel libro"></textarea>
+                </details>
+              </aside>
+            </div>
+          </div>
+        </section>
+
+        <!-- MAPPA -->
+        <section id="view-map" class="view">
+          <div class="map-toolbar">
+            <label>Colori <select id="mapColor"><option value="type">per tipo</option><option value="tag">per hashtag</option></select></label>
+            <label>Direzione <select id="mapDir"><option value="TB">dall'alto in basso</option><option value="LR">da sinistra a destra</option></select></label>
+            <button id="mapFit">Adatta</button>
+            <button id="mapPng">Salva immagine</button>
+            <span class="grow"></span>
+            <span class="hint">Doppio clic su un paragrafo per aprirlo · trascina per spostare · rotella per lo zoom</span>
+          </div>
+          <div class="map-legend" id="mapLegend"></div>
+          <div id="cy"></div>
+        </section>
+
+        <!-- GIOCA -->
+        <section id="view-play" class="view">
+          <div class="play">
+            <div class="play-page">
+              <div class="play-head">
+                <button id="playRestart">Ricomincia</button>
+                <button id="playBack">Indietro</button>
+                <button id="playHere" title="Inizia la partita dal paragrafo aperto nell'editor">Gioca da qui</button>
+                <span class="grow"></span>
+                <button id="playEdit">Modifica questo paragrafo</button>
+              </div>
+              <article id="playText" class="book-page"></article>
+            </div>
+            <aside class="play-path">
+              <h3>Percorso</h3>
+              <ol id="playPath"></ol>
+              <button id="playSave" class="wide">Salva percorso (.txt)</button>
+            </aside>
+          </div>
+        </section>
+
+        <!-- CONTROLLI -->
+        <section id="view-check" class="view">
+          <div class="check-page">
+            <div id="checkStats" class="stat-row"></div>
+            <div class="numbering">
+              <h3>Numerazione</h3>
+              <p>Rimescolando, i paragrafi ricevono numeri casuali; restano fermi quelli segnati come <b>fissi</b> e il paragrafo iniziale. Bivio evita, dove può, i link fra numeri vicini.</p>
+              <button id="btnShuffle" class="primary">Rimescola la numerazione</button>
+              <button id="btnCompact">Togli i buchi nella numerazione</button>
+            </div>
+            <h3>Problemi</h3>
+            <ul id="issueList" class="issue-list"></ul>
+          </div>
+        </section>
+
+        <!-- LIBRO -->
+        <section id="view-book" class="view">
+          <div class="book-settings">
+            <div class="field"><label for="bTitle">Titolo</label><input id="bTitle" /></div>
+            <div class="field"><label for="bAuthor">Autore</label><input id="bAuthor" /></div>
+            <div class="field"><label for="bIntro">Introduzione e regole <small>(compare prima del paragrafo 1; può contenere link)</small></label><textarea id="bIntro" rows="10"></textarea></div>
+            <div class="row">
+              <div class="field"><label for="bStart">Paragrafo iniziale</label><select id="bStart"></select></div>
+              <div class="field"><label for="bLinkFmt">Formato dei link</label><input id="bLinkFmt" title="{n} diventa il numero del paragrafo. Esempi: {n} · §{n} · vai al {n}" /></div>
+              <div class="field"><label for="bPage" title="Formato della pagina nei file PDF e Word">Formato pagina</label><select id="bPage"><option>A5</option><option>A4</option><option>Letter</option></select></div>
+              <div class="field"><label for="bFont">Carattere del PDF</label><select id="bFont" title="Il carattere viene incorporato nel PDF, come richiedono le tipografie. Crimson Text copre gli alfabeti latini; con altri caratteri Bivio passa da solo a Roboto"><option value="serif">Serif (Crimson Text)</option><option value="sans">Sans (Roboto)</option></select></div>
+            </div>
+            <div class="field"><label>Colori degli hashtag <small>(usati nella mappa)</small></label><div id="tagColors" class="tag-colors"></div></div>
+            <div class="help">
+              <h3>Come si scrive</h3>
+              <table>
+                <tr><td><code>[[bosco]]</code></td><td>link al paragrafo “bosco”: nel libro diventa il suo numero</td></tr>
+                <tr><td><code>[[bosco|vai al {n}]]</code></td><td>link con testo personalizzato; <code>{n}</code> diventa il numero</td></tr>
+                <tr><td><code>**testo**</code></td><td><b>grassetto</b></td></tr>
+                <tr><td><code>*testo*</code></td><td><i>corsivo</i></td></tr>
+                <tr><td>riga vuota</td><td>nuovo capoverso</td></tr>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

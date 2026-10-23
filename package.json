@@ -1,0 +1,28 @@
+{
+  "name": "bivio",
+  "version": "0.1.2",
+  "description": "Bivio: editor di librogame multipiattaforma",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
+    "vite": "^6.4.5"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.3",
+    "@tauri-apps/plugin-fs": "^2.7.1",
+    "cytoscape": "^3.34.4",
+    "cytoscape-dagre": "^4.0.1",
+    "docx": "^9.13.0",
+    "jszip": "^3.10.2",
+    "pdfmake": "^0.3.12"
+  },
+  "type": "module"
+}

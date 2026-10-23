@@ -1,0 +1,62 @@
+# Costruisce gli installatori per macOS, Windows e Linux.
+# Si avvia a ogni modifica del ramo main, oppure a mano da GitHub → Actions → "Run workflow".
+# Gli installatori finiscono in una bozza di Release su GitHub, con il numero di versione
+# scritto in src-tauri/tauri.conf.json (la stessa versione aggiorna la stessa bozza).
+name: Build
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['README.md', 'LICENSE']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest      # Mac con Apple Silicon e Intel (universale)
+            args: --target universal-apple-darwin
+          - platform: ubuntu-22.04
+            args: ''
+          - platform: windows-latest
+            args: ''
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Librerie di sistema (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__        # __VERSION__ = versione in src-tauri/tauri.conf.json
+          releaseName: Bivio v__VERSION__
+          releaseBody: 'Scarica il file adatto al tuo sistema: .dmg per Mac, .msi o .exe per Windows, .AppImage o .deb per Linux.'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
