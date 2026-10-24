@@ -37,7 +37,7 @@ async function getPdfMake(font) {
 const SERIF_OK = /^[\u0000-\u017f\u0192\u02c6\u02c7\u02d8-\u02dd\u2010-\u2027\u2030-\u203a\u20ac\u2122]*$/;
 export function pickFont(book) {
   if (book.settings.pdfFont === 'sans') return 'Roboto';
-  const all = [book.title, book.author, book.intro, ...book.paragraphs.map(p => p.text)].join('');
+  const all = [book.title, book.author, ...(book.sections || []).map(s => s.title + s.text), ...(book.variables || []).map(v => v.value), ...book.paragraphs.map(p => p.text)].join('');
   return SERIF_OK.test(all) ? 'Crimson' : 'Roboto';
 }
 
@@ -66,14 +66,18 @@ export function pdfDefinition(book, font = 'Roboto', print = false) {
     d.author ? { text: d.author, style: 'author' } : null,
     { text: '', pageBreak: 'after' },
   ].filter(Boolean);
-  if (d.intro.length) {
-    content.push(...blocks(d.intro, d, print));
+  const section = s => {
+    if (s.title) content.push({ text: s.title, style: 'section' });
+    content.push(...blocks(s.blocks, d, print));
     content.push({ text: '', pageBreak: 'after' });
-  }
+  };
+  d.before.forEach(section);
   for (const p of d.paragraphs) {
     content.push({ text: String(p.number), id: `p${p.number}`, style: 'number', headlineLevel: 1 });
     content.push(...blocks(p.blocks, d, print));
   }
+  if (d.after.length) content.push({ text: '', pageBreak: 'after' });
+  d.after.forEach(section);
   return {
     info: { title: d.title, author: d.author, creator: 'Bivio' },
     pageSize: d.pageSize,
@@ -84,6 +88,7 @@ export function pdfDefinition(book, font = 'Roboto', print = false) {
     styles: {
       title: { fontSize: 26, bold: true, alignment: 'center', margin: [0, 160, 0, 12] },
       author: { fontSize: 14, italics: true, alignment: 'center' },
+      section: { fontSize: 17, bold: true, alignment: 'center', margin: [0, 10, 0, 14] },
       number: { fontSize: 14, bold: true, alignment: 'center', margin: [0, 14, 0, 6] },
       body: { alignment: 'justify', margin: [0, 0, 0, 7] },
     },

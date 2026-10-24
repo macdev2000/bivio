@@ -6,6 +6,7 @@ body{font-family:Georgia,'Iowan Old Style',serif;max-width:38em;margin:2em auto;
 h1{text-align:center;font-size:2em;margin-bottom:.2em}
 .author{text-align:center;font-style:italic;margin-top:0}
 .intro{margin:2em 0 3em}
+.intro h2{text-align:center;font-size:1.35em}
 section.par{margin:0 0 2.2em}
 section.par h2{text-align:center;font-size:1.25em;margin:0 0 .6em;letter-spacing:.05em}
 a{color:#8a3b12;font-weight:bold;text-decoration:none}
@@ -26,7 +27,8 @@ export function exportHtml(book) {
 <body>
 <h1>${escapeHtml(d.title)}</h1>
 ${d.author ? `<p class="author">${escapeHtml(d.author)}</p>` : ''}
-${d.intro.length ? `<div class="intro">${toHtml(d.intro, opts)}</div>` : ''}
+${d.before.map(s => `<div class="intro">${s.title ? `<h2>${escapeHtml(s.title)}</h2>` : ''}${toHtml(s.blocks, opts)}</div>`).join('\n')}
 ${body}
+${d.after.map(s => `<div class="intro">${s.title ? `<h2>${escapeHtml(s.title)}</h2>` : ''}${toHtml(s.blocks, opts)}</div>`).join('\n')}
 </body></html>`;
 }

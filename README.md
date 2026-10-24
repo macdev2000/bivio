@@ -21,6 +21,14 @@ Funziona su **macOS, Windows e Linux**.
 - **Link a un paragrafo nuovo** con ⇧⌘K / Ctrl+Maiusc+K: crea il paragrafo con il primo numero libero e ne inserisce il link, senza interrompere la scrittura.
 - **Promemoria** per ogni paragrafo (✎ nell'elenco), raccolti nella scheda Controlli e salvabili in un file di testo. I paragrafi vuoti sono evidenziati nell'elenco.
 - **Sito web**: esportazione in un archivio .zip con una pagina per paragrafo.
+- **Sezioni del libro**: regole, introduzione, epilogo, ringraziamenti… ognuna con titolo, prima o dopo i paragrafi, nell'ordine che vuoi. Possono contenere link.
+- **Attributi di gioco**: scrivi `@eroe` nel testo e nel libro esportato diventa il valore impostato (es. “Lupo Solitario”).
+- **Collegamenti invisibili**: un link scritto nel Promemoria conta per i controlli e la mappa (linea punteggiata) ma non finisce nel libro. Utile per gli enigmi numerici.
+- **Paragrafi esclusi**: togliendo la spunta “nel libro” il paragrafo resta nell'editor ma non viene esportato.
+- **Copertina** facoltativa per l'ePub.
+- **Copie di sicurezza** (app desktop): a ogni salvataggio le cinque versioni precedenti restano come `.bak1`…`.bak5`; ogni 5 minuti, se ci sono modifiche, una copia `~nome.bivio` accanto al file.
+- **Scrittura senza distrazioni** (Alt+I) e **⌘/Ctrl + clic** su un link per aprire il paragrafo collegato.
+- **Appunti di lettura** durante la prova di gioco, salvati insieme al percorso.
 - **Annulla** (↶) per le operazioni sulla struttura: rinomina, eliminazione, rimescolamento, cambio di numero.
 - Al riavvio riapre l'ultima sessione, anche se non era stata salvata.
 
@@ -45,6 +53,7 @@ Il formato dei link si cambia nella scheda **Libro** (es. `§{n}`).
 | Nuovo paragrafo | ⇧⌘N | Ctrl+Maiusc+N |
 | Cerca / vai a un paragrafo | ⌘F o ⌘G | Ctrl+F o Ctrl+G |
 | Link a un paragrafo nuovo | ⇧⌘K | Ctrl+Maiusc+K |
+| Scrittura senza distrazioni | ⌥I | Alt+I |
 | Grassetto, corsivo, link | ⌘B, ⌘I, ⌘K | Ctrl+B, Ctrl+I, Ctrl+K |
 | Schede Scrivi…Libro | ⌘1…⌘5 | Ctrl+1…Ctrl+5 |
 | Paragrafo precedente / successivo visitato | ⌥← / ⌥→ | Alt+← / Alt+→ |
@@ -104,12 +113,14 @@ JSON leggibile, adatto anche a Git:
 ```json
 {
   "format": "bivio", "version": 1,
-  "title": "…", "author": "…", "intro": "…",
+  "title": "…", "author": "…", "bookVersion": "1.0",
+  "sections": [ { "id": "…", "title": "Regole", "text": "…", "place": "before" } ],
+  "variables": [ { "name": "eroe", "value": "Lupo Solitario" } ],
   "settings": { "start": "<id>", "linkFormat": "{n}", "pageSize": "A5", "pdfFont": "serif" },
   "tagColors": { "bosco": "#2a7f62" },
   "paragraphs": [
     { "id": "…", "key": "bosco", "number": 2, "text": "…[[lupo]]…",
-      "notes": "", "tags": ["bosco"], "type": "normale", "fixed": false }
+      "notes": "", "tags": ["bosco"], "type": "normale", "fixed": false, "exportable": true }
   ]
 }
 ```

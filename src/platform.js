@@ -39,6 +39,28 @@ export async function openBookFile() {
   });
 }
 
+/** Sceglie un'immagine JPG o PNG: {bytes, type} oppure null. */
+export async function openImageFileBytes() {
+  const typeOf = name => /\.png$/i.test(name) ? 'image/png' : 'image/jpeg';
+  if (isDesktop) {
+    const { dialog, fs } = await T();
+    const path = await dialog.open({ multiple: false, filters: [{ name: 'Immagine', extensions: ['jpg', 'jpeg', 'png'] }] });
+    if (!path) return null;
+    return { bytes: await fs.readFile(path), type: typeOf(path) };
+  }
+  return new Promise(resolve => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/jpeg,image/png';
+    input.onchange = async () => {
+      const f = input.files[0];
+      resolve(f ? { bytes: new Uint8Array(await f.arrayBuffer()), type: typeOf(f.name) } : null);
+    };
+    input.addEventListener('cancel', () => resolve(null));
+    input.click();
+  });
+}
+
 /** Sceglie un file di testo e ne restituisce i byte: {name, bytes} oppure null. */
 export async function openTextFileBytes() {
   if (isDesktop) {
@@ -69,6 +91,7 @@ export async function saveBookFile(text, { path = null, suggestedName = 'libroga
       target = await dialog.save({ defaultPath: suggestedName, filters: [BOOK_FILTER] });
       if (!target) return null;
     }
+    await rotateBackups(fs, target);
     await fs.writeTextFile(target, text);
     return target;
   }
@@ -163,4 +186,31 @@ function pageDialog(message, ask) {
     document.body.appendChild(wrap);
     wrap.querySelector('.primary').focus();
   });
+}
+
+/**
+ * Prima di sovrascrivere un libro tiene le ultime cinque versioni:
+ * libro.bivio.bak1 (la più recente) … libro.bivio.bak5 (la più vecchia).
+ */
+async function rotateBackups(fs, target) {
+  try {
+    if (!(await fs.exists(target))) return;
+    for (let i = 4; i >= 1; i--) {
+      if (await fs.exists(`${target}.bak${i}`)) await fs.copyFile(`${target}.bak${i}`, `${target}.bak${i + 1}`);
+    }
+    await fs.copyFile(target, `${target}.bak1`);
+  } catch (e) {
+    console.warn('Copie di sicurezza non riuscite', e); // non deve impedire il salvataggio
+  }
+}
+
+/** Copia automatica accanto al file aperto: “~libro.bivio”. Solo nell'app desktop. */
+export async function writeAutosave(path, text) {
+  if (!isDesktop || !path) return false;
+  const { fs } = await T();
+  const sep = path.includes('\\') && !path.includes('/') ? '\\' : '/';
+  const i = path.lastIndexOf(sep);
+  const auto = `${path.slice(0, i + 1)}~${path.slice(i + 1)}`;
+  await fs.writeTextFile(auto, text);
+  return true;
 }

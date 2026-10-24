@@ -281,3 +281,38 @@ main { flex: 1; min-width: 0; position: relative; }
 .modal-btns .ghost { border-color: transparent; background: none; color: var(--muted); }
 .modal-btns .grow { flex: 1; }
 .modal-btns { align-items: center; }
+
+/* Sezioni e attributi di gioco (scheda Libro) */
+.label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.label-row button { font-size: 12.5px; padding: 3px 10px; }
+.sections { display: flex; flex-direction: column; gap: 10px; }
+.section-card { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.section-head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.section-head .sec-title { flex: 1; min-width: 160px; font: 600 15px var(--serif); border: 1px solid transparent; background: none; padding: 4px 6px; border-radius: 6px; }
+.section-head .sec-title:hover { border-color: var(--line); }
+.section-head .sec-title:focus { border-color: var(--accent); outline: none; background: var(--panel-2); }
+.section-head select { border: 1px solid var(--line); background: var(--panel-2); border-radius: 6px; padding: 3px 6px; font-size: 13px; }
+.section-card textarea { border: 1px solid var(--line); background: var(--panel-2); border-radius: 6px; padding: 8px 10px; font: 15px/1.6 var(--serif); resize: vertical; }
+.variables { display: flex; flex-direction: column; gap: 6px; }
+.var-row { display: flex; align-items: center; gap: 6px; }
+.var-row .at { font: 600 15px var(--mono); color: var(--accent); }
+.var-row input { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 5px 8px; }
+.var-row input[data-f="name"] { width: 180px; font-family: var(--mono); font-size: 13px; }
+.var-row input[data-f="value"] { flex: 1; min-width: 0; }
+.field.grow2 { flex: 3; }
+.book-page .intro h3 { text-align: center; font-size: 18px; margin: 0 0 8px; }
+
+/* Collegamenti nascosti */
+.hidden-tag { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); border: 1px dashed var(--muted); border-radius: 4px; padding: 0 4px; margin-left: 4px; }
+
+/* Appunti di lettura */
+.play-notes-label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 6px 0 4px; }
+.play-notes { width: 100%; min-height: 110px; resize: vertical; border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 7px; font-size: 13px; margin-bottom: 8px; }
+
+/* Scrittura senza distrazioni */
+button.icon.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+body.focus-mode .sidebar, body.focus-mode .links-panel, body.focus-mode .ed-tags, body.focus-mode .ed-toolbar .hint, body.focus-mode .tabs { display: none; }
+body.focus-mode .editor { max-width: 860px; margin: 0 auto; width: 100%; }
+body.focus-mode #pText { border-color: transparent; box-shadow: 0 2px 18px rgba(0,0,0,.06); }
+body.focus-mode #btnDelete, body.focus-mode #btnStart { display: none; }
+.file-name { max-width: 180px; }

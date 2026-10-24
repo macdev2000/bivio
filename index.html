@@ -25,6 +25,7 @@
         <button data-view="book" title="Libro (Ctrl/⌘+5)">Libro</button>
       </nav>
       <div class="actions">
+        <button id="btnFocus" class="icon" title="Scrittura senza distrazioni (Alt+I)">⤢</button>
         <button id="btnUndo" class="icon" title="Annulla l'ultima operazione sulla struttura (rinomina, elimina, rimescola…)" disabled>↶</button>
         <button id="btnNew" title="Nuovo libro">Nuovo</button>
         <button id="btnOpen" title="Apri (Ctrl/⌘+O)">Apri</button>
@@ -78,6 +79,7 @@
               <input id="pKey" class="key-field" spellcheck="false" title="Nome (chiave) del paragrafo: si usa nei link come [[nome]]. Rinominandolo, i link si aggiornano da soli." />
               <select id="pType" title="Tipo di paragrafo"></select>
               <label class="check" title="Il numero resta fisso quando si rimescola"><input id="pFixed" type="checkbox" /> fisso</label>
+              <label class="check" title="Togli la spunta per escludere il paragrafo dai file esportati (resta nell'editor, nella mappa e nei controlli)"><input id="pExport" type="checkbox" /> nel libro</label>
               <button id="btnStart" class="pill" title="Imposta come paragrafo iniziale"></button>
               <span class="grow"></span>
               <button id="btnDelete" class="danger-ghost" title="Elimina paragrafo">Elimina</button>
@@ -143,6 +145,8 @@
             <aside class="play-path">
               <h3>Percorso</h3>
               <ol id="playPath"></ol>
+              <label for="playNotes" class="play-notes-label">Appunti di lettura</label>
+              <textarea id="playNotes" class="play-notes" placeholder="Osservazioni durante la prova: finiscono nel file del percorso"></textarea>
               <button id="playSave" class="wide">Salva percorso (.txt)</button>
             </aside>
           </div>
@@ -205,11 +209,21 @@
         <section id="view-book" class="view">
           <div class="book-settings">
             <div class="field"><label for="bTitle">Titolo</label><input id="bTitle" /></div>
-            <div class="field"><label for="bAuthor">Autore</label><input id="bAuthor" /></div>
-            <div class="field"><label for="bIntro">Introduzione e regole <small>(compare prima del paragrafo 1; può contenere link)</small></label><textarea id="bIntro" rows="10"></textarea></div>
+            <div class="row">
+              <div class="field grow2"><label for="bAuthor">Autore</label><input id="bAuthor" /></div>
+              <div class="field"><label for="bVersion">Versione</label><input id="bVersion" placeholder="es. 1.0" /></div>
+            </div>
+            <div class="field">
+              <div class="label-row"><label>Sezioni del libro <small>(regole, introduzione, epilogo, ringraziamenti… possono contenere link)</small></label><button id="secAdd">+ Aggiungi sezione</button></div>
+              <div id="sections" class="sections"></div>
+            </div>
+            <div class="field">
+              <div class="label-row"><label>Attributi di gioco <small>(scrivi <code>@nome</code> nel testo: nel libro esportato diventa il valore)</small></label><button id="varAdd">+ Aggiungi</button></div>
+              <div id="variables" class="variables"></div>
+            </div>
             <div class="row">
               <div class="field"><label for="bStart">Paragrafo iniziale</label><select id="bStart"></select></div>
-              <div class="field"><label for="bDist" title="Quando rimescoli, Bivio cerca di lasciare almeno questo numero di paragrafi fra due paragrafi collegati">Distanza minima nel rimescolamento</label><input id="bDist" type="number" min="0" max="50" /></div>
+              <div class="field"><label for="bDist" title="Rimescolando, Bivio cerca di lasciare almeno questo numero di paragrafi fra due paragrafi collegati">Distanza minima</label><input id="bDist" type="number" min="0" max="50" /></div>
               <div class="field"><label for="bLinkFmt">Formato dei link</label><input id="bLinkFmt" title="{n} diventa il numero del paragrafo. Esempi: {n} · §{n} · vai al {n}" /></div>
               <div class="field"><label for="bPage" title="Formato della pagina nei file PDF e Word">Formato pagina</label><select id="bPage"><option>A5</option><option>A4</option><option>Letter</option></select></div>
               <div class="field"><label for="bFont">Carattere del PDF</label><select id="bFont" title="Il carattere viene incorporato nel PDF, come richiedono le tipografie. Crimson Text copre gli alfabeti latini; con altri caratteri Bivio passa da solo a Roboto"><option value="serif">Serif (Crimson Text)</option><option value="sans">Sans (Roboto)</option></select></div>
@@ -223,6 +237,9 @@
                 <tr><td><code>**testo**</code></td><td><b>grassetto</b></td></tr>
                 <tr><td><code>*testo*</code></td><td><i>corsivo</i></td></tr>
                 <tr><td>riga vuota</td><td>nuovo capoverso</td></tr>
+                <tr><td><code>@eroe</code></td><td>attributo di gioco: diventa il valore impostato qui sopra</td></tr>
+                <tr><td>link nel Promemoria</td><td>collegamento invisibile: conta per i controlli e la mappa ma non finisce nel libro (utile per gli enigmi)</td></tr>
+                <tr><td>⌘/Ctrl + clic su un link</td><td>apre il paragrafo collegato (o lo crea)</td></tr>
               </table>
             </div>
           </div>

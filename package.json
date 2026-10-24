@@ -1,6 +1,6 @@
 {
   "name": "bivio",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Bivio: editor di librogame multipiattaforma",
   "scripts": {
     "dev": "vite",

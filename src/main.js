@@ -1,7 +1,7 @@
 import * as M from './model.js';
 import { parse, toHtml, escapeHtml, extractLinks } from './markup.js';
 import * as P from './platform.js';
-import { fileBase } from './export/common.js';
+import { fileBase, applyVariables } from './export/common.js';
 
 const $ = sel => document.querySelector(sel);
 const $$ = sel => [...document.querySelectorAll(sel)];
@@ -48,6 +48,14 @@ function init() {
   } catch { /* backup illeggibile: si riparte da zero */ }
   if (!restored) setBook(M.newBook(), null);
   P.onCloseGuard(() => S.dirty);
+  // Ogni 5 minuti, se ci sono modifiche non salvate, una copia “~nome.bivio” accanto al file (app desktop)
+  let lastAuto = null;
+  setInterval(async () => {
+    if (!S.dirty || !S.path || !P.isDesktop) return;
+    const text = M.serialize(S.book);
+    if (text === lastAuto) return;
+    try { if (await P.writeAutosave(S.path, text)) lastAuto = text; } catch (e) { console.warn('Copia automatica non riuscita', e); }
+  }, 5 * 60 * 1000);
 }
 
 function fillStatic() {
@@ -64,6 +72,7 @@ function setBook(book, path, { dirty = false, keepUndo = false } = {}) {
   $('#search').value = '';
   S.play = { path: [], pos: -1 };
   S.map.stale = true;
+  delete $('#sections').dataset.ids; delete $('#variables').dataset.sig;
   const first = byId(book.settings.start) || M.sorted(book)[0];
   S.currentId = null;
   if (first) openParagraph(first.id, { focus: false });
@@ -97,6 +106,7 @@ function undo() {
   const snap = S.undo.pop();
   if (!snap) return;
   S.book = M.loadBook(snap.json);
+  delete $('#sections').dataset.ids; delete $('#variables').dataset.sig;
   S.currentId = byId(snap.currentId) ? snap.currentId : M.sorted(S.book)[0]?.id;
   touch({ structure: true });
   renderEditor();
@@ -159,6 +169,7 @@ function renderSidebar() {
     if (lvl === 'error') flags.push('<span class="flag err" title="Link a un paragrafo inesistente">!</span>');
     else if (lvl === 'warn') flags.push('<span class="flag" title="Vedi Controlli">•</span>');
     if (p.notes.trim()) flags.push('<span class="flag todo" title="Ha un promemoria">✎</span>');
+    if (p.exportable === false) flags.push('<span class="flag" title="Escluso dal libro esportato">⊘</span>');
     const dots = p.tags.slice(0, 4).map(t => `<span style="background:${M.tagColor(S.book, t)}" title="#${escapeHtml(t)}"></span>`).join('');
     const cls = [p.id === S.currentId ? 'current' : '', p.text.trim() ? '' : 'empty', p.notes.trim() ? 'has-todo' : ''].filter(Boolean).join(' ');
     return `<li data-id="${p.id}" class="${cls}" role="option" title="${p.text.trim() ? '' : 'Paragrafo vuoto'}">
@@ -215,6 +226,7 @@ function renderEditor() {
   set('#pNotes', p.notes);
   $('#pType').value = p.type;
   $('#pFixed').checked = p.fixed;
+  $('#pExport').checked = p.exportable !== false;
   const isStart = S.book.settings.start === p.id;
   const bs = $('#btnStart');
   bs.textContent = isStart ? '▶ inizio' : 'imposta come inizio';
@@ -228,13 +240,15 @@ function renderEditor() {
 function renderLinks() {
   const p = current();
   if (!p) return;
-  const { byKey, inc } = M.index(S.book);
-  const out = extractLinks(p.text);
+  const { byKey, inc, out: outAll, hidden } = M.index(S.book);
+  const out = outAll.get(p.id);
+  const hid = hidden.get(p.id);
   $('#outLinks').innerHTML = out.length ? out.map(k => {
     const t = byKey.get(k);
+    const h = hid.includes(k) ? ' <span class="hidden-tag" title="Collegamento invisibile: è nel promemoria e non finisce nel libro">nascosto</span>' : '';
     return t
-      ? `<li data-id="${t.id}" title="Apri"><span class="n">${t.number}</span>${escapeHtml(k)}</li>`
-      : `<li class="broken" title="Il paragrafo non esiste"><span class="n">?</span>${escapeHtml(k)}<button data-create="${escapeHtml(k)}">Crea</button></li>`;
+      ? `<li data-id="${t.id}" title="Apri"><span class="n">${t.number}</span>${escapeHtml(k)}${h}</li>`
+      : `<li class="broken" title="Il paragrafo non esiste"><span class="n">?</span>${escapeHtml(k)}${h}<button data-create="${escapeHtml(k)}">Crea</button></li>`;
   }).join('') : '<li class="none">Nessuna uscita</li>';
   const ins = inc.get(p.id) || [];
   $('#inLinks').innerHTML = ins.length
@@ -414,6 +428,7 @@ function caretCoords(ta) {
 
 // ------------------------------------------------------------------ viste
 function setView(v) {
+  if (v === 'book') { delete $('#sections').dataset.ids; delete $('#variables').dataset.sig; }
   S.view = v;
   $$('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.view === v));
   $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
@@ -438,7 +453,9 @@ async function renderMapView() {
        <span><i style="border-style:double;border-width:4px"></i>fisso</span>
        <span><i style="border-style:dashed"></i>vuoto</span>
        <span><i style="border-color:#c0392b;border-style:dashed"></i>link spezzato</span>
-       <span><i style="outline:2px solid #d28a2a;outline-offset:1px"></i>senza entrate</span>`;
+       <span><i style="outline:2px solid #d28a2a;outline-offset:1px"></i>senza entrate</span>
+       <span><i style="border-style:dotted;height:0;border-width:2px 0 0"></i>collegamento nascosto</span>
+       <span><i style="opacity:.45"></i>escluso dal libro</span>`;
   $('#mapLegend').innerHTML = legend;
   if (!S.map.stale && S.map.cy) { S.map.cy.resize(); return; }
   const { renderMap } = await import('./map.js');
@@ -463,14 +480,16 @@ function renderPlay() {
   if (!p) { $('#playText').innerHTML = '<p class="muted">Il libro è vuoto.</p>'; return; }
   const { byKey } = M.index(S.book);
   const numberOf = k => byKey.get(k)?.number ?? null;
-  const html = toHtml(parse(p.text), {
+  const vars = S.book.variables;
+  const html = toHtml(parse(applyVariables(p.text, vars)), {
     numberOf, linkFormat: S.book.settings.linkFormat,
     href: k => byKey.has(k) ? '#' : null,
     linkAttrs: k => ` data-go="${byKey.get(k).id}"`,
   });
   const isStart = p.id === S.book.settings.start && S.play.pos === 0;
-  const intro = isStart && S.book.intro.trim()
-    ? `<div class="intro">${toHtml(parse(S.book.intro), { numberOf, linkFormat: S.book.settings.linkFormat, href: k => byKey.has(k) ? '#' : null, linkAttrs: k => ` data-go="${byKey.get(k).id}"` })}</div><hr/>` : '';
+  const before = S.book.sections.filter(s => s.place !== 'after' && s.text.trim());
+  const intro = isStart && before.length
+    ? before.map(s => `<div class="intro">${s.title ? `<h3>${escapeHtml(s.title)}</h3>` : ''}${toHtml(parse(applyVariables(s.text, vars)), { numberOf, linkFormat: S.book.settings.linkFormat, href: k => byKey.has(k) ? '#' : null, linkAttrs: k => ` data-go="${byKey.get(k).id}"` })}</div>`).join('') + '<hr/>' : '';
   const exits = extractLinks(p.text).length;
   const end = p.type === 'vittoria' ? '★ Finale: vittoria' : p.type === 'morte' ? '✝ Finale: sconfitta' : exits === 0 ? 'Nessuna uscita da questo paragrafo' : '';
   $('#playText').innerHTML = `${intro}<h2>${p.number}</h2>${html || '<p class="muted">(paragrafo vuoto)</p>'}${end ? `<div class="end">${end}</div>` : ''}`;
@@ -494,7 +513,8 @@ async function savePlayPath() {
     const q = byId(id);
     return q ? `${String(i + 1).padStart(3)}. §${q.number}  ${q.key}` : '';
   });
-  const text = `Percorso in “${S.book.title}” — ${new Date().toLocaleString('it-IT')}\n\n${lines.join('\n')}\n`;
+  const notes = $('#playNotes').value.trim();
+  const text = `Percorso in “${S.book.title}” — ${new Date().toLocaleString('it-IT')}\n\n${lines.join('\n')}\n` + (notes ? `\nAppunti di lettura\n\n${notes}\n` : '');
   const r = await P.saveExport(text, { name: `${fileBase(S.book)}_percorso.txt`, ext: 'txt', label: 'Testo', mime: 'text/plain' });
   if (r) toast('Percorso salvato');
 }
@@ -505,7 +525,7 @@ function renderCheck() {
   S.issues = M.validate(S.book);
   const st = M.stats(S.book);
   $('#checkStats').innerHTML = [
-    [st.paragraphs, 'paragrafi'], [st.words.toLocaleString('it-IT'), 'parole'],
+    [st.paragraphs, 'paragrafi'], [st.words.toLocaleString('it-IT'), `parole · ${st.chars.toLocaleString('it-IT')} caratteri`],
     [st.victories, 'finali di vittoria'], [st.deaths, 'finali di sconfitta'],
   ].map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('');
   const order = { error: 0, warn: 1, info: 2 };
@@ -636,7 +656,9 @@ function renderBookSettings() {
   const set = (sel, v) => { const el = $(sel); if (document.activeElement !== el) el.value = v; };
   set('#bTitle', b.title);
   set('#bAuthor', b.author);
-  set('#bIntro', b.intro);
+  set('#bVersion', b.bookVersion || '');
+  renderSections();
+  renderVariables();
   set('#bLinkFmt', b.settings.linkFormat);
   set('#bDist', b.settings.minDistance ?? 2);
   $('#bPage').value = b.settings.pageSize;
@@ -647,6 +669,41 @@ function renderBookSettings() {
   $('#tagColors').innerHTML = tags.length
     ? tags.map(t => `<label><input type="color" data-tagcolor="${escapeHtml(t)}" value="${M.tagColor(b, t)}"/>#${escapeHtml(t)}</label>`).join('')
     : '<span class="muted">Nessun hashtag nel libro.</span>';
+}
+
+function renderSections(force = false) {
+  const box = $('#sections');
+  // Ridisegna solo se le sezioni sono cambiate (aggiunte, tolte, spostate): ridisegnare mentre si scrive
+  // farebbe perdere il cursore o un clic già iniziato
+  const ids = S.book.sections.map(s => s.id).join(',');
+  if (!force && box.dataset.ids === ids) return;
+  box.dataset.ids = ids;
+  const n = S.book.sections.length;
+  box.innerHTML = n ? S.book.sections.map((s, i) => `<div class="section-card" data-sec="${s.id}">
+      <div class="section-head">
+        <input class="sec-title" data-f="title" value="${escapeHtml(s.title)}" aria-label="Titolo della sezione" placeholder="Titolo" />
+        <select data-f="place" aria-label="Posizione">
+          <option value="before"${s.place !== 'after' ? ' selected' : ''}>prima dei paragrafi</option>
+          <option value="after"${s.place === 'after' ? ' selected' : ''}>dopo i paragrafi</option>
+        </select>
+        <button class="icon" data-act="up" title="Sposta su"${i === 0 ? ' disabled' : ''}>↑</button>
+        <button class="icon" data-act="down" title="Sposta giù"${i === n - 1 ? ' disabled' : ''}>↓</button>
+        <button class="icon danger-ghost" data-act="del" title="Elimina la sezione">✕</button>
+      </div>
+      <textarea data-f="text" rows="6" aria-label="Testo della sezione">${escapeHtml(s.text)}</textarea>
+    </div>`).join('') : '<p class="muted">Nessuna sezione. Aggiungine una per le regole o l\'introduzione.</p>';
+}
+
+function renderVariables(force = false) {
+  const box = $('#variables');
+  const sig = String(S.book.variables.length);
+  if (!force && box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+  box.innerHTML = S.book.variables.length ? S.book.variables.map((v, i) => `<div class="var-row" data-var="${i}">
+      <span class="at">@</span><input data-f="name" value="${escapeHtml(v.name)}" placeholder="nome" aria-label="Nome dell'attributo" spellcheck="false" />
+      <span class="muted">→</span><input data-f="value" value="${escapeHtml(v.value ?? '')}" placeholder="valore" aria-label="Valore" />
+      <button class="icon danger-ghost" data-act="del" title="Elimina">✕</button></div>`).join('')
+    : '<p class="muted">Nessun attributo. Esempio: <code>@eroe</code> → “Lupo Solitario”.</p>';
 }
 
 // ------------------------------------------------------------------ file
@@ -789,7 +846,11 @@ async function exportCmd(kind) {
       r = await P.saveExport(await exportPdf(S.book, { print }), { name: `${base}${print ? '_stampa' : ''}.pdf`, ext: 'pdf', label: 'PDF', mime: 'application/pdf' });
     } else if (kind === 'epub') {
       const { exportEpub } = await import('./export/epub.js');
-      r = await P.saveExport(await exportEpub(S.book), { name: `${base}.epub`, ext: 'epub', label: 'ePub', mime: 'application/epub+zip' });
+      let cover = null;
+      if (await P.confirmDialog('Vuoi aggiungere un\'immagine di copertina all\'ePub? (JPG o PNG)')) {
+        cover = await P.openImageFileBytes();
+      }
+      r = await P.saveExport(await exportEpub(S.book, { cover }), { name: `${base}.epub`, ext: 'epub', label: 'ePub', mime: 'application/epub+zip' });
     } else if (kind === 'site') {
       const { exportSite } = await import('./export/site.js');
       r = await P.saveExport(await exportSite(S.book), { name: `${base}_sito.zip`, ext: 'zip', label: 'Archivio ZIP', mime: 'application/zip' });
@@ -827,6 +888,17 @@ function bindEvents() {
   $('#todoList').addEventListener('click', e => { const b = e.target.closest('[data-open]'); if (b) { setView('write'); openParagraph(b.dataset.open); } });
   $('#btnSave').onclick = () => saveCmd(false);
   $('#btnUndo').onclick = undo;
+  $('#btnFocus').onclick = toggleFocus;
+  $('#pText').addEventListener('mouseup', e => {
+    if (!(isMac ? e.metaKey : e.ctrlKey)) return;
+    const ta = e.target, pos = ta.selectionStart;
+    const before = ta.value.lastIndexOf('[[', pos), close = ta.value.indexOf(']]', before);
+    if (before < 0 || close < 0 || pos > close + 2 || ta.value.slice(before, pos).includes(']]')) return;
+    const key = ta.value.slice(before + 2, close).split('|')[0].trim();
+    const t = S.book.paragraphs.find(q => q.key === key);
+    if (t) openParagraph(t.id);
+    else if (key) { const { p } = createMissing(key); openParagraph(p.id); }
+  });
   $('#btnExport').onclick = e => { e.stopPropagation(); $('#exportMenu').hidden = !$('#exportMenu').hidden; };
   $('#exportMenu').addEventListener('click', e => { const b = e.target.closest('[data-export]'); if (b) exportCmd(b.dataset.export); });
   document.addEventListener('click', e => { if (!e.target.closest('.menu-wrap')) $('#exportMenu').hidden = true; });
@@ -892,6 +964,7 @@ function bindEvents() {
   $('#pNumber').addEventListener('change', commitNumber);
   $('#pType').addEventListener('change', e => { current().type = e.target.value; touch({ structure: true }); });
   $('#pFixed').addEventListener('change', e => { current().fixed = e.target.checked; touch({ structure: true }); });
+  $('#pExport').addEventListener('change', e => { current().exportable = e.target.checked; touch({ structure: true }); });
   $('#btnStart').onclick = () => { S.book.settings.start = S.currentId; touch({ structure: true }); };
   $('#btnDelete').onclick = deleteCurrent;
   $('#pTags').addEventListener('change', e => { const p = current(); p.tags = M.parseTags(e.target.value); e.target.value = p.tags.map(t => '#' + t).join(' '); touch({ structure: true }); });
@@ -947,7 +1020,54 @@ function bindEvents() {
   // libro
   $('#bTitle').addEventListener('input', e => { S.book.title = e.target.value; touch(); });
   $('#bAuthor').addEventListener('input', e => { S.book.author = e.target.value; touch(); });
-  $('#bIntro').addEventListener('input', e => { S.book.intro = e.target.value; touch(); });
+  $('#bVersion').addEventListener('input', e => { S.book.bookVersion = e.target.value; touch(); });
+  $('#secAdd').onclick = () => {
+    S.book.sections.push(M.makeSection({ title: 'Nuova sezione', place: 'before' }));
+    touch(); renderSections(true);
+    $('#sections .section-card:last-child .sec-title')?.select();
+  };
+  $('#sections').addEventListener('input', e => {
+    const card = e.target.closest('[data-sec]'); const f = e.target.dataset.f;
+    if (!card || !f) return;
+    const s = S.book.sections.find(x => x.id === card.dataset.sec);
+    s[f] = e.target.value;
+    touch();
+  });
+  $('#sections').addEventListener('change', e => { if (e.target.dataset.f === 'place' || e.target.dataset.f === 'text') touch({ structure: true }); });
+  $('#sections').addEventListener('click', async e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const card = b.closest('[data-sec]');
+    const i = S.book.sections.findIndex(x => x.id === card.dataset.sec);
+    const list = S.book.sections;
+    if (b.dataset.act === 'up' && i > 0) [list[i - 1], list[i]] = [list[i], list[i - 1]];
+    else if (b.dataset.act === 'down' && i < list.length - 1) [list[i + 1], list[i]] = [list[i], list[i + 1]];
+    else if (b.dataset.act === 'del') {
+      if (list[i].text.trim() && !(await P.confirmDialog(`Eliminare la sezione “${list[i].title}”?`))) return;
+      snapshot(`eliminazione della sezione “${list[i].title}”`);
+      list.splice(i, 1);
+    }
+    document.activeElement?.blur();
+    touch({ structure: true }); renderSections(true);
+  });
+  $('#varAdd').onclick = () => {
+    S.book.variables.push({ name: '', value: '' });
+    touch(); renderVariables(true);
+    $('#variables .var-row:last-child input')?.focus();
+  };
+  $('#variables').addEventListener('input', e => {
+    const row = e.target.closest('[data-var]'); const f = e.target.dataset.f;
+    if (!row || !f) return;
+    const v = S.book.variables[+row.dataset.var];
+    v[f] = f === 'name' ? e.target.value.replace(/^@+/, '').replace(/[^\p{L}\p{N}_]/gu, '') : e.target.value;
+    if (f === 'name' && e.target.value !== v.name) e.target.value = v.name;
+    touch();
+  });
+  $('#variables').addEventListener('click', e => {
+    const b = e.target.closest('[data-act="del"]'); if (!b) return;
+    S.book.variables.splice(+b.closest('[data-var]').dataset.var, 1);
+    document.activeElement?.blur();
+    touch(); renderVariables(true);
+  });
   $('#bDist').addEventListener('change', e => { const v = Math.max(0, Math.min(50, parseInt(e.target.value, 10) || 0)); S.book.settings.minDistance = v; e.target.value = v; touch(); });
   $('#bLinkFmt').addEventListener('input', e => { S.book.settings.linkFormat = e.target.value.includes('{n}') ? e.target.value : '{n}'; touch(); });
   $('#bPage').addEventListener('change', e => { S.book.settings.pageSize = e.target.value; touch(); });
@@ -962,6 +1082,7 @@ function bindEvents() {
     if (mod && k === 's') { e.preventDefault(); saveCmd(e.shiftKey); }
     else if (mod && k === 'o') { e.preventDefault(); openCmd(); }
     else if (mod && e.shiftKey && k === 'n') { e.preventDefault(); setView('write'); addParagraph(); }
+    else if (e.altKey && !mod && (e.code === 'KeyI')) { e.preventDefault(); toggleFocus(); }
     else if (mod && (k === 'f' || k === 'g')) { e.preventDefault(); $('#search').focus(); $('#search').select(); }
     else if (mod && !e.shiftKey && /^[1-5]$/.test(e.key)) { e.preventDefault(); setView(['write', 'map', 'play', 'check', 'book'][+e.key - 1]); }
     else if (e.altKey && e.key === 'ArrowLeft' && S.view === 'write') { e.preventDefault(); navHistory(-1); }
@@ -977,6 +1098,13 @@ function startLink() {
   const sel = ta.value.slice(ta.selectionStart, ta.selectionEnd);
   insertAtCursor('[[' + M.slugify(sel).replace(/^paragrafo$/, '') + (sel ? '' : ''));
   updateAutocomplete();
+}
+
+function toggleFocus() {
+  const on = document.body.classList.toggle('focus-mode');
+  $('#btnFocus').classList.toggle('on', on);
+  if (on && S.view !== 'write') setView('write');
+  toast(on ? 'Scrittura senza distrazioni: Alt+I per tornare' : 'Vista normale');
 }
 
 function navHistory(d) {

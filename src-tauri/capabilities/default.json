@@ -45,6 +45,22 @@
           "path": "**"
         }
       ]
+    },
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-copy-file",
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
     }
   ]
 }

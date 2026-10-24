@@ -26,7 +26,10 @@ export function newBook() {
     uuid: newUuid(),
     title: 'Nuovo librogame',
     author: '',
-    intro: "Qui puoi scrivere le regole del gioco e l'antefatto. Il testo compare prima del paragrafo 1.",
+    bookVersion: '',
+    intro: '',
+    sections: [makeSection({ title: 'Regole', text: "Qui puoi scrivere le regole del gioco e l'antefatto. Le sezioni “prima dei paragrafi” compaiono prima del paragrafo 1.\n\nQuando sei pronto, vai al [[inizio]]." })],
+    variables: [],
     settings: { start: start.id, linkFormat: '{n}', pageSize: 'A5', pdfFont: 'serif', minDistance: 2 },
     tagColors: { bosco: PALETTE[0] },
     paragraphs: [start, p2, p3],
@@ -43,7 +46,13 @@ export function makeParagraph(o = {}) {
     tags: o.tags || [],
     type: o.type || 'normale',
     fixed: !!o.fixed,
+    exportable: o.exportable !== false,
   };
+}
+
+/** Sezione di testo che non è un paragrafo di gioco: regole, introduzione, epilogo, ringraziamenti… */
+export function makeSection(o = {}) {
+  return { id: 's' + uid(), title: o.title || 'Nuova sezione', text: o.text || '', place: o.place === 'after' ? 'after' : 'before' };
 }
 
 /** Controlla e normalizza un libro letto da file. */
@@ -53,8 +62,13 @@ export function loadBook(json) {
   if (b.version > FORMAT_VERSION) throw new Error('Il file è stato creato con una versione più recente di Bivio.');
   b.settings = Object.assign({ linkFormat: '{n}', pageSize: 'A5', pdfFont: 'serif', minDistance: 2 }, b.settings || {});
   b.tagColors = b.tagColors || {};
-  b.intro = b.intro || '';
   b.uuid = b.uuid || newUuid();
+  b.bookVersion = b.bookVersion || '';
+  b.variables = Array.isArray(b.variables) ? b.variables.filter(v => v && v.name) : [];
+  b.sections = Array.isArray(b.sections) ? b.sections.map(s => Object.assign(makeSection(), s)) : [];
+  // I file più vecchi avevano un solo testo introduttivo: diventa la prima sezione
+  if (b.intro && b.intro.trim()) b.sections.unshift(makeSection({ title: 'Introduzione e regole', text: b.intro }));
+  b.intro = '';
   b.paragraphs = b.paragraphs.map(p => Object.assign(makeParagraph(), p, { tags: p.tags || [] }));
   if (!b.paragraphs.some(p => p.id === b.settings.start)) b.settings.start = b.paragraphs[0]?.id;
   ensureTagColors(b);
@@ -86,26 +100,40 @@ export function renameParagraph(book, p, wanted) {
   const newKey = uniqueKey(book, wanted, p.id);
   const old = p.key;
   if (newKey === old) return old;
-  for (const q of book.paragraphs) q.text = renameLinks(q.text, old, newKey);
+  for (const q of book.paragraphs) { q.text = renameLinks(q.text, old, newKey); q.notes = renameLinks(q.notes, old, newKey); }
+  for (const s of book.sections || []) s.text = renameLinks(s.text, old, newKey);
   p.key = newKey;
   return newKey;
 }
 
 // ---------- indici ----------
 
+/**
+ * Collegamenti del libro.
+ *  out:    paragrafo → chiavi citate (nel testo e nei promemoria)
+ *  hidden: paragrafo → chiavi citate SOLO nei promemoria (collegamenti invisibili: contano per i controlli
+ *          e la mappa, ma non finiscono nel libro; utili per gli enigmi numerici)
+ *  inc:    paragrafo → paragrafi che lo citano
+ *  fromSections: paragrafi citati dalle sezioni (regole, introduzione…)
+ */
 export function index(book) {
   const byKey = new Map(book.paragraphs.map(p => [p.key, p]));
   const out = new Map();
+  const hidden = new Map();
   const inc = new Map(book.paragraphs.map(p => [p.id, []]));
   for (const p of book.paragraphs) {
-    const keys = extractLinks(p.text);
-    out.set(p.id, keys);
-    for (const k of keys) {
+    const visible = extractLinks(p.text);
+    const inNotes = extractLinks(p.notes).filter(k => !visible.includes(k));
+    out.set(p.id, [...visible, ...inNotes]);
+    hidden.set(p.id, inNotes);
+    for (const k of [...visible, ...inNotes]) {
       const t = byKey.get(k);
       if (t && !inc.get(t.id).includes(p)) inc.get(t.id).push(p);
     }
   }
-  return { byKey, out, inc };
+  const fromSections = new Set();
+  for (const s of book.sections || []) for (const k of extractLinks(s.text)) { const t = byKey.get(k); if (t) fromSections.add(t.id); }
+  return { byKey, out, hidden, inc, fromSections };
 }
 
 export function sorted(book) {
@@ -263,19 +291,27 @@ function compactIfBroken(book) {
  */
 export function validate(book) {
   const issues = [];
-  const { byKey, out, inc } = index(book);
+  const { byKey, out, hidden, inc, fromSections } = index(book);
   const start = book.paragraphs.find(p => p.id === book.settings.start);
+
+  for (const s of book.sections || []) {
+    for (const k of extractLinks(s.text)) {
+      if (!byKey.has(k)) issues.push({ level: 'error', kind: 'brokenSection', key: k, msg: `La sezione “${s.title}” rimanda a “${k}”, che non esiste.` });
+    }
+  }
 
   for (const p of sorted(book)) {
     for (const k of out.get(p.id)) {
-      if (!byKey.has(k)) issues.push({ level: 'error', kind: 'broken', p, key: k, msg: `§${p.number} rimanda a “${k}”, che non esiste.` });
+      if (!byKey.has(k)) issues.push({ level: 'error', kind: 'broken', p, key: k, msg: `§${p.number} rimanda a “${k}”${hidden.get(p.id).includes(k) ? ' (nel promemoria)' : ''}, che non esiste.` });
+      else if (p.exportable && !byKey.get(k).exportable && !hidden.get(p.id).includes(k))
+        issues.push({ level: 'warn', kind: 'toExcluded', p, msg: `§${p.number} rimanda a §${byKey.get(k).number} “${k}”, che è escluso dal libro esportato.` });
     }
     if (!p.text.trim()) issues.push({ level: 'warn', kind: 'empty', p, msg: `§${p.number} “${p.key}” è vuoto.` });
     else if (out.get(p.id).length === 0 && p.type === 'normale')
       issues.push({ level: 'warn', kind: 'deadend', p, msg: `§${p.number} “${p.key}” non ha uscite e non è segnato come finale.` });
     if (p.type !== 'normale' && out.get(p.id).length > 0)
       issues.push({ level: 'info', kind: 'finalWithLinks', p, msg: `§${p.number} “${p.key}” è un finale ma contiene dei link.` });
-    if (p !== start && inc.get(p.id).length === 0)
+    if (p !== start && inc.get(p.id).length === 0 && !fromSections.has(p.id))
       issues.push({ level: 'warn', kind: 'orphan', p, msg: `§${p.number} “${p.key}” non è raggiunto da nessun paragrafo.` });
   }
 
@@ -314,10 +350,13 @@ export function validate(book) {
 }
 
 export function stats(book) {
-  const words = book.paragraphs.reduce((s, p) => s + countWords(p.text), 0);
+  const texts = [...book.paragraphs.map(p => p.text), ...(book.sections || []).map(s => s.text)];
+  const words = texts.reduce((s, t) => s + countWords(t), 0);
+  const chars = texts.reduce((s, t) => s + t.replace(/\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g, '000').replace(/[*]/g, '').length, 0);
   return {
     paragraphs: book.paragraphs.length,
     words,
+    chars,
     victories: book.paragraphs.filter(p => p.type === 'vittoria').length,
     deaths: book.paragraphs.filter(p => p.type === 'morte').length,
   };

@@ -29,8 +29,9 @@ export async function exportSite(book) {
   const nav = `<nav><a href="index.html">Inizio</a></nav>`;
   zip.file('index.html', page(d.title, `<h1>${escapeHtml(d.title)}</h1>
 ${d.author ? `<p style="text-align:center"><em>${escapeHtml(d.author)}</em></p>` : ''}
-${d.intro.length ? toHtml(d.intro, opts) : ''}
+${d.before.map(s => `${s.title ? `<h2>${escapeHtml(s.title)}</h2>` : ''}${toHtml(s.blocks, opts)}`).join('\n')}
 ${startNum != null ? `<p style="text-align:center;margin-top:2em"><a href="${startNum}.html">Comincia l'avventura</a></p>` : ''}`));
+  d.after.forEach((s, i) => zip.file(`sezione-${i + 1}.html`, page(s.title || d.title, `${s.title ? `<h2>${escapeHtml(s.title)}</h2>` : ''}${toHtml(s.blocks, opts)}\n${nav}`)));
   for (const p of d.paragraphs) {
     zip.file(`${p.number}.html`, page(`${p.number} · ${d.title}`, `<h2>${p.number}</h2>\n${toHtml(p.blocks, opts)}\n${nav}`));
   }

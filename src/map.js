@@ -13,7 +13,7 @@ function cssVar(name) {
  * options: { colorBy: 'type'|'tag', direction: 'TB'|'LR', onOpen(paragraph), onCreate(key) }
  */
 export function renderMap(container, book, options) {
-  const { byKey, out, inc } = index(book);
+  const { byKey, out, hidden, inc, fromSections } = index(book);
   const start = book.settings.start;
   const elements = [];
   const missing = new Set();
@@ -23,7 +23,8 @@ export function renderMap(container, book, options) {
     if (p.id === start) classes.push('start');
     if (p.fixed) classes.push('fixed');
     if (!p.text.trim()) classes.push('empty');
-    if (p.id !== start && inc.get(p.id).length === 0) classes.push('orphan');
+    if (p.id !== start && inc.get(p.id).length === 0 && !fromSections.has(p.id)) classes.push('orphan');
+    if (p.exportable === false) classes.push('excluded');
     const tag = p.tags[0];
     elements.push({
       data: {
@@ -44,7 +45,7 @@ export function renderMap(container, book, options) {
           elements.push({ data: { id: target, label: `?\n${k}`, missingKey: k }, classes: 'missing' });
         }
       }
-      elements.push({ data: { id: `${p.id}->${target}`, source: p.id, target }, classes: t ? '' : 'broken' });
+      elements.push({ data: { id: `${p.id}->${target}`, source: p.id, target }, classes: [t ? '' : 'broken', hidden.get(p.id).includes(k) ? 'hidden' : ''].join(' ').trim() });
     }
   }
 
@@ -81,6 +82,8 @@ export function renderMap(container, book, options) {
         'curve-style': 'bezier', 'arrow-scale': 0.9, 'opacity': 0.8,
       } },
       { selector: 'edge.broken', style: { 'line-color': '#c0392b', 'target-arrow-color': '#c0392b', 'line-style': 'dashed' } },
+      { selector: 'edge.hidden', style: { 'line-style': 'dotted', 'width': 2 } },
+      { selector: 'node.excluded', style: { 'opacity': 0.45 } },
       { selector: '.dim', style: { 'opacity': 0.12 } },
       { selector: 'edge.hl', style: { 'line-color': accent, 'target-arrow-color': accent, 'width': 2.5, 'opacity': 1 } },
     ],

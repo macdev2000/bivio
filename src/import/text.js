@@ -1,4 +1,4 @@
-import { makeParagraph, FORMAT, FORMAT_VERSION, ensureTagColors } from '../model.js';
+import { makeParagraph, makeSection, FORMAT, FORMAT_VERSION, ensureTagColors } from '../model.js';
 
 // Espressioni che introducono un rimando, una per riga. Si possono cambiare al momento dell'importazione.
 export const DEFAULT_KEYWORDS = [
@@ -89,11 +89,16 @@ export function importText(text, { keywords = DEFAULT_KEYWORDS, title = 'Libro i
     format: FORMAT, version: FORMAT_VERSION,
     uuid: globalThis.crypto?.randomUUID?.() || String(Date.now()),
     title, author: '',
-    intro: linkify(reflow(clean(intro))),
+    bookVersion: '',
+    intro: '',
+    sections: [],
+    variables: [],
     settings: { start: first.id, linkFormat: '{n}', pageSize: 'A5', pdfFont: 'serif', minDistance: 2 },
     tagColors: {},
     paragraphs,
   };
+  const introText = linkify(reflow(clean(intro)));
+  if (introText) book.sections.push(makeSection({ title: 'Introduzione', text: introText }));
   ensureTagColors(book);
   return { book, stats: { paragraphs: paragraphs.length, links, missing: [...missing].sort((a, b) => a - b), duplicates } };
 }

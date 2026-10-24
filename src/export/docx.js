@@ -41,6 +41,8 @@ const PRINT_STYLES = {
       paragraph: { alignment: AlignmentType.CENTER, keepNext: true, keepLines: true, spacing: { before: 360, after: 160 } } },
     { id: 'TitoloLibro', name: 'Titolo libro', basedOn: 'Normal', run: { bold: true, size: 48 },
       paragraph: { alignment: AlignmentType.CENTER, spacing: { before: 2400, after: 300 } } },
+    { id: 'TitoloSezione', name: 'Titolo sezione', basedOn: 'Normal', next: 'TestoLibrogame', run: { bold: true, size: 34 },
+      paragraph: { alignment: AlignmentType.CENTER, keepNext: true, spacing: { after: 240 } } },
     { id: 'AutoreLibro', name: 'Autore libro', basedOn: 'Normal', run: { italics: true, size: 28 },
       paragraph: { alignment: AlignmentType.CENTER } },
   ],
@@ -61,10 +63,13 @@ export async function exportDocx(book, { print = false } = {}) {
   if (d.author) children.push(new Paragraph({ alignment: AlignmentType.CENTER,
     children: [new TextRun({ text: d.author, italics: true, size: 28, font: FONT })] }));
   children.push(new Paragraph({ children: [new PageBreak()] }));
-  if (d.intro.length) {
-    children.push(...blocksToParagraphs(d.intro, d));
+  const screenSection = s => {
+    if (s.title) children.push(new Paragraph({ alignment: AlignmentType.CENTER, keepNext: true, spacing: { after: 240 },
+      children: [new TextRun({ text: s.title, bold: true, size: 34, font: FONT })] }));
+    children.push(...blocksToParagraphs(s.blocks, d));
     children.push(new Paragraph({ children: [new PageBreak()] }));
-  }
+  };
+  d.before.forEach(screenSection);
   for (const p of d.paragraphs) {
     children.push(new Paragraph({
       alignment: AlignmentType.CENTER, keepNext: true, spacing: { before: 360, after: 160 },
@@ -72,6 +77,8 @@ export async function exportDocx(book, { print = false } = {}) {
     }));
     children.push(...blocksToParagraphs(p.blocks, d));
   }
+  if (d.after.length) children.push(new Paragraph({ children: [new PageBreak()] }));
+  d.after.forEach(screenSection);
   const doc = new Document({
     creator: d.author || 'Bivio', title: d.title,
     styles: { default: { document: { run: { font: FONT, size: 22 } } } },
@@ -87,14 +94,18 @@ async function exportPrintDocx(d) {
   const children = [new Paragraph({ style: 'TitoloLibro', children: [new TextRun(d.title)] })];
   if (d.author) children.push(new Paragraph({ style: 'AutoreLibro', children: [new TextRun(d.author)] }));
   children.push(new Paragraph({ children: [new PageBreak()] }));
-  if (d.intro.length) {
-    children.push(...blocksToParagraphs(d.intro, d, true));
+  const printSection = s => {
+    if (s.title) children.push(new Paragraph({ style: 'TitoloSezione', children: [new TextRun(s.title)] }));
+    children.push(...blocksToParagraphs(s.blocks, d, true));
     children.push(new Paragraph({ children: [new PageBreak()] }));
-  }
+  };
+  d.before.forEach(printSection);
   for (const p of d.paragraphs) {
     children.push(new Paragraph({ style: 'NumeroParagrafo', children: [new TextRun(String(p.number))] }));
     children.push(...blocksToParagraphs(p.blocks, d, true));
   }
+  if (d.after.length) children.push(new Paragraph({ children: [new PageBreak()] }));
+  d.after.forEach(printSection);
   const doc = new Document({
     creator: d.author || 'Bivio', title: d.title,
     styles: PRINT_STYLES,
