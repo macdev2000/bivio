@@ -237,3 +237,21 @@ main { flex: 1; min-width: 0; position: relative; }
 .modal-btns { display: flex; justify-content: flex-end; gap: 8px; }
 .demo-banner { background: var(--accent-soft); color: var(--ink); font-size: 12.5px; padding: 6px 14px; border-bottom: 1px solid var(--line); text-align: center; }
 .menu-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding: 6px 10px 2px; }
+
+/* Rimescolamento e scambio */
+.numbering h3 { margin-top: 4px; }
+.numbering h3 ~ h3 { margin-top: 18px; }
+.shuffle-form { display: flex; flex-direction: column; gap: 10px; }
+.field-row { display: flex; flex-direction: column; gap: 4px; max-width: 560px; }
+.field-row > span, .field-row > label { font-weight: 600; font-size: 13px; }
+.field-row select, .group-input input, .swap-row input { border: 1px solid var(--line); background: var(--panel-2); border-radius: 6px; padding: 6px 8px; }
+.group-input { display: flex; gap: 6px; }
+.group-input input { flex: 1; min-width: 0; font-family: var(--mono); font-size: 13px; }
+.sel-count { color: var(--muted); font-size: 12px; }
+.sel-count.warn { color: var(--warn); }
+.sh-help { margin: 0; color: var(--ink) !important; font-size: 13px; }
+.sh-note { font-size: 12.5px; margin: 12px 0 0 !important; }
+.swap-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.swap-row label { font: 600 16px var(--serif); color: var(--accent); }
+.swap-row input { width: 80px; }
+.swap-row span { color: var(--muted); font-size: 16px; padding: 0 4px; }

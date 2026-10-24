@@ -141,57 +141,109 @@ export function compact(book) {
 }
 
 /**
- * Rimescola la numerazione. I paragrafi fissi (e quello iniziale) tengono il loro numero.
- * Fra molti tentativi sceglie quello con meno link tra numeri vicini,
- * così il lettore non indovina la strada guardando la pagina accanto.
+ * Rimescola la numerazione.
+ *
+ * Modalità:
+ *  - 'all'      tutto il libro
+ *  - 'within'   solo i paragrafi del gruppo A, fra loro (si scambiano i loro numeri)
+ *  - 'between'  i paragrafi dei gruppi A e B mescolati fra loro
+ *  - 'spread'   i paragrafi del gruppo A sparsi nel resto del libro
+ *               (ognuno prende il posto di un paragrafo a caso, che prende il suo numero)
+ *
+ * I paragrafi fissi e quello iniziale non si muovono mai.
+ * Fra molti tentativi sceglie quello con meno link tra numeri vicini.
+ * Restituisce { score, moved }.
  */
-export function shuffle(book, { attempts = 300, random = Math.random } = {}) {
-  compactIfBroken(book);
-  const N = book.paragraphs.length;
-  const fixed = book.paragraphs.filter(p => p.fixed || p.id === book.settings.start);
-  const used = new Set(fixed.map(p => p.number));
-  const free = [];
-  for (let n = 1; n <= N; n++) if (!used.has(n)) free.push(n);
-  const movable = book.paragraphs.filter(p => !fixed.includes(p));
+export function shuffle(book, { mode = 'all', a = null, b = null, attempts = 300, random = Math.random } = {}) {
+  const isLocked = p => p.fixed || p.id === book.settings.start;
+  const inA = p => a && a.has(p.id);
+  const inB = p => b && b.has(p.id);
+  let movable;
+  if (mode === 'all') {
+    compactIfBroken(book);
+    movable = book.paragraphs.filter(p => !isLocked(p));
+  } else if (mode === 'within') {
+    movable = book.paragraphs.filter(p => inA(p) && !isLocked(p));
+  } else if (mode === 'between') {
+    movable = book.paragraphs.filter(p => (inA(p) || inB(p)) && !isLocked(p));
+  } else if (mode === 'spread') {
+    const group = book.paragraphs.filter(p => inA(p) && !isLocked(p));
+    const others = book.paragraphs.filter(p => !inA(p) && !isLocked(p));
+    for (let i = others.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [others[i], others[j]] = [others[j], others[i]]; }
+    movable = [...group, ...others.slice(0, group.length)];
+  } else throw new Error('Modalità di rimescolamento sconosciuta: ' + mode);
+
+  if (movable.length < 2) return { score: 0, moved: 0 };
+  const pool = movable.map(p => p.number);
   const { out, byKey } = index(book);
+  const edges = [];
+  for (const p of book.paragraphs) for (const k of out.get(p.id)) { const t = byKey.get(k); if (t && t !== p) edges.push([p.id, t.id]); }
+  const base = new Map(book.paragraphs.map(p => [p.id, p.number]));
+  const scoreOf = asg => edges.reduce((s, [x, y]) => s + (Math.abs(asg.get(x) - asg.get(y)) <= 2 ? 1 : 0), 0);
 
   let best = null, bestScore = Infinity;
-  for (let a = 0; a < attempts; a++) {
-    const nums = [...free];
-    for (let i = nums.length - 1; i > 0; i--) {
-      const j = Math.floor(random() * (i + 1));
-      [nums[i], nums[j]] = [nums[j], nums[i]];
-    }
-    const assign = new Map(fixed.map(p => [p.id, p.number]));
-    movable.forEach((p, i) => assign.set(p.id, nums[i]));
-    let score = 0;
-    for (const p of book.paragraphs) {
-      for (const k of out.get(p.id)) {
-        const t = byKey.get(k);
-        if (t && t !== p && Math.abs(assign.get(p.id) - assign.get(t.id)) <= 2) score++;
-      }
-    }
-    if (score < bestScore) { best = assign; bestScore = score; }
-    if (score === 0) break;
+  for (let t = 0; t < attempts; t++) {
+    const mix = arr => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+    let nums;
+    if (mode === 'spread') {
+      // Il gruppo prende i numeri degli altri paragrafi scelti, e viceversa
+      const h = movable.length / 2;
+      nums = [...mix(pool.slice(h)), ...mix(pool.slice(0, h))];
+    } else nums = mix([...pool]);
+    const asg = new Map(base);
+    movable.forEach((p, i) => asg.set(p.id, nums[i]));
+    const sc = scoreOf(asg);
+    if (sc < bestScore) { best = asg; bestScore = sc; }
+    if (sc === 0) break;
   }
   // Rifinitura: scambia coppie di numeri finché i link vicini diminuiscono
-  if (bestScore > 0 && movable.length > 1) {
-    const edges = [];
-    for (const p of book.paragraphs) for (const k of out.get(p.id)) { const t = byKey.get(k); if (t && t !== p) edges.push([p.id, t.id]); }
-    const scoreOf = a => edges.reduce((s, [x, y]) => s + (Math.abs(a.get(x) - a.get(y)) <= 2 ? 1 : 0), 0);
+  if (bestScore > 0 && mode !== 'spread') {
     for (let it = 0; it < 3000 && bestScore > 0; it++) {
-      const a = movable[Math.floor(random() * movable.length)].id;
-      const b = movable[Math.floor(random() * movable.length)].id;
-      if (a === b) continue;
-      const na = best.get(a), nb = best.get(b);
-      best.set(a, nb); best.set(b, na);
-      const s = scoreOf(best);
-      if (s < bestScore) bestScore = s;
-      else { best.set(a, na); best.set(b, nb); }
+      const x = movable[Math.floor(random() * movable.length)].id;
+      const y = movable[Math.floor(random() * movable.length)].id;
+      if (x === y) continue;
+      const nx = best.get(x), ny = best.get(y);
+      best.set(x, ny); best.set(y, nx);
+      const sc = scoreOf(best);
+      if (sc < bestScore) bestScore = sc;
+      else { best.set(x, nx); best.set(y, ny); }
     }
   }
-  for (const p of book.paragraphs) p.number = best.get(p.id);
-  return bestScore;
+  let moved = 0;
+  for (const p of book.paragraphs) { const n = best.get(p.id); if (n !== p.number) moved++; p.number = n; }
+  return { score: bestScore, moved };
+}
+
+/**
+ * Interpreta una selezione di paragrafi scritta a mano:
+ *   "10-40, 55, #bosco, lupo"  →  numeri, intervalli, hashtag e nomi
+ * Restituisce { ids: Set, unknown: [parti non riconosciute] }.
+ */
+export function parseSelection(book, text) {
+  const ids = new Set();
+  const unknown = [];
+  for (const raw of String(text).split(/[,;\s]+/).map(s => s.trim()).filter(Boolean)) {
+    let m;
+    if ((m = raw.match(/^(\d+)\s*[-–]\s*(\d+)$/))) {
+      const lo = Math.min(+m[1], +m[2]), hi = Math.max(+m[1], +m[2]);
+      const hit = book.paragraphs.filter(p => p.number >= lo && p.number <= hi);
+      hit.forEach(p => ids.add(p.id));
+      if (!hit.length) unknown.push(raw);
+    } else if (/^\d+$/.test(raw)) {
+      const hit = book.paragraphs.filter(p => p.number === +raw);
+      hit.forEach(p => ids.add(p.id));
+      if (!hit.length) unknown.push(raw);
+    } else if (raw.startsWith('#')) {
+      const tag = raw.slice(1).toLowerCase();
+      const hit = book.paragraphs.filter(p => p.tags.includes(tag));
+      hit.forEach(p => ids.add(p.id));
+      if (!hit.length) unknown.push(raw);
+    } else {
+      const p = book.paragraphs.find(q => q.key === slugify(raw));
+      if (p) ids.add(p.id); else unknown.push(raw);
+    }
+  }
+  return { ids, unknown };
 }
 
 /** Se i fissi hanno numeri fuori intervallo o duplicati, il rimescolamento non può funzionare. */

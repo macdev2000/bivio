@@ -10,7 +10,8 @@ Funziona su **macOS, Windows e Linux**.
 - **Rinomina sicura**: cambiando il nome di un paragrafo, tutti i link si aggiornano.
 - **Hashtag** sui paragrafi (`#bosco #combattimento`) per raggrupparli per zona, filtrarli e colorare la mappa.
 - **Tipi di paragrafo**: normale, finale di vittoria, finale di sconfitta. Paragrafi **fissi** che non cambiano numero.
-- **Rimescolamento** della numerazione: i fissi e l'iniziale restano fermi; Bivio evita i link fra numeri vicini.
+- **Rimescolamento** della numerazione, in quattro modi: tutto il libro; un gruppo di paragrafi tra loro; due gruppi tra loro; un gruppo sparso nel resto del libro. I gruppi si indicano con numeri, intervalli, hashtag o nomi (es. `10-40, 55, #bosco`) oppure prendendo i paragrafi filtrati nell'elenco. I fissi e l'iniziale restano fermi; Bivio evita i link fra numeri vicini.
+- **Scambio** di due paragrafi indicandone i numeri (anche dall'editor, scrivendo il nuovo numero nel campo §).
 - **Mappa** del libro integrata (non serve installare Graphviz), colorata per tipo o per hashtag, esportabile in PNG. Doppio clic su un paragrafo per aprirlo.
 - **Gioca**: prova il libro come lettore, con il percorso fatto salvabile in un file di testo.
 - **Controlli**: link a paragrafi inesistenti, paragrafi vuoti, vicoli ciechi, paragrafi irraggiungibili, buchi nella numerazione.

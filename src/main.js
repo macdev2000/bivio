@@ -499,6 +499,7 @@ async function savePlayPath() {
 
 // ---------- controlli ----------
 function renderCheck() {
+  updateShuffleForm();
   S.issues = M.validate(S.book);
   const st = M.stats(S.book);
   $('#checkStats').innerHTML = [
@@ -516,12 +517,95 @@ function renderCheck() {
     </li>`).join('') : '<li class="ok">Nessun problema trovato. Ogni strada porta da qualche parte.</li>';
 }
 
+const SHUFFLE_HELP = {
+  all: 'Tutti i paragrafi ricevono un numero nuovo.',
+  within: 'Solo i paragrafi del primo gruppo si scambiano i numeri tra loro: il resto del libro non cambia.',
+  between: 'I paragrafi dei due gruppi si scambiano i numeri tra loro: il resto del libro non cambia.',
+  spread: 'Ogni paragrafo del primo gruppo prende il numero di un paragrafo a caso del resto del libro, che prende il suo.',
+};
+
+function selectionInfo(inputSel, countSel) {
+  const text = $(inputSel).value.trim();
+  if (!text) { $(countSel).textContent = 'Scrivi numeri, intervalli, #hashtag o nomi di paragrafi.'; $(countSel).className = 'sel-count'; return null; }
+  const { ids, unknown } = M.parseSelection(S.book, text);
+  const locked = S.book.paragraphs.filter(p => ids.has(p.id) && (p.fixed || p.id === S.book.settings.start)).length;
+  let msg = `${ids.size} ${ids.size === 1 ? 'paragrafo' : 'paragrafi'}`;
+  if (locked) msg += ` (${locked} ${locked === 1 ? 'fisso resta fermo' : 'fissi restano fermi'})`;
+  if (unknown.length) msg += ` · non trovati: ${unknown.join(', ')}`;
+  $(countSel).textContent = msg;
+  $(countSel).className = 'sel-count' + (unknown.length ? ' warn' : '');
+  return ids;
+}
+
+function updateShuffleForm() {
+  const mode = $('#shMode').value;
+  $('#shGroupA').hidden = mode === 'all';
+  $('#shGroupB').hidden = mode !== 'between';
+  $('#shHelp').textContent = SHUFFLE_HELP[mode];
+  if (mode !== 'all') selectionInfo('#shA', '#shACount');
+  if (mode === 'between') selectionInfo('#shB', '#shBCount');
+  updateSwapInfo();
+}
+
+function selectionFromList() {
+  const list = M.sorted(S.book).filter(matchesFilter).map(p => p.number);
+  if (!list.length) return '';
+  // Comprime i numeri consecutivi in intervalli: 3,4,5,9 → "3-5, 9"
+  const out = [];
+  let a = list[0], b = list[0];
+  for (const n of list.slice(1).concat([null])) {
+    if (n === b + 1) { b = n; continue; }
+    out.push(a === b ? `${a}` : `${a}-${b}`);
+    a = b = n;
+  }
+  return out.join(', ');
+}
+
 async function doShuffle() {
-  if (!(await P.confirmDialog('Rimescolare la numerazione dei paragrafi?\n\nI paragrafi fissi e quello iniziale mantengono il loro numero. Puoi annullare con ↶.'))) return;
+  const mode = $('#shMode').value;
+  let a = null, b = null;
+  if (mode !== 'all') {
+    a = selectionInfo('#shA', '#shACount');
+    if (!a || a.size === 0) { toast('Indica i paragrafi del primo gruppo', true); $('#shA').focus(); return; }
+  }
+  if (mode === 'between') {
+    b = selectionInfo('#shB', '#shBCount');
+    if (!b || b.size === 0) { toast('Indica i paragrafi del secondo gruppo', true); $('#shB').focus(); return; }
+    const both = [...a].filter(id => b.has(id)).length;
+    if (both) { toast(`${both} paragrafi sono in entrambi i gruppi: toglili da uno dei due`, true); return; }
+  }
+  const label = { all: 'tutto il libro', within: 'il primo gruppo tra sé', between: 'i due gruppi tra loro', spread: 'il primo gruppo nel resto del libro' }[mode];
+  if (!(await P.confirmDialog(`Rimescolare ${label}?\n\nI paragrafi fissi e quello iniziale mantengono il loro numero. Puoi annullare con ↶.`))) return;
   snapshot('rimescolamento');
-  const score = M.shuffle(S.book);
+  const { score, moved } = M.shuffle(S.book, { mode, a, b });
   touch({ structure: true });
-  toast(score === 0 ? 'Numerazione rimescolata: nessun link fra numeri vicini' : `Numerazione rimescolata (restano ${score} link fra numeri vicini)`);
+  if (!moved) { S.undo.pop(); $('#btnUndo').disabled = S.undo.length === 0; toast('Nessun paragrafo da spostare: sono tutti fissi?', true); return; }
+  toast(`${moved} paragrafi rinumerati` + (score === 0 ? ' · nessun link fra numeri vicini' : ` · restano ${score} link fra numeri vicini`));
+  updateShuffleForm();
+}
+
+function swapPair() {
+  const x = parseInt($('#swX').value, 10), y = parseInt($('#swY').value, 10);
+  const px = S.book.paragraphs.find(p => p.number === x), py = S.book.paragraphs.find(p => p.number === y);
+  return { x, y, px, py };
+}
+
+function updateSwapInfo() {
+  const { x, y, px, py } = swapPair();
+  const name = (n, p) => !n ? '' : p ? `§${n} “${p.key}”${p.fixed || p.id === S.book.settings.start ? ' ⚓' : ''}` : `§${n} non esiste`;
+  $('#swInfo').textContent = [name(x, px), name(y, py)].filter(Boolean).join(' ⇄ ');
+  $('#btnSwap').disabled = !(px && py && px !== py);
+}
+
+function doSwap() {
+  const { px, py } = swapPair();
+  if (!px || !py || px === py) return;
+  snapshot(`scambio di ${px.number} e ${py.number}`);
+  M.setNumber(S.book, px, py.number);
+  touch({ structure: true });
+  toast(`Scambiati: “${px.key}” ora è il ${px.number}, “${py.key}” il ${py.number}` + (px.fixed || py.fixed ? ' (anche se fisso)' : ''));
+  $('#swX').value = ''; $('#swY').value = '';
+  updateSwapInfo();
 }
 
 function doCompact() {
@@ -743,6 +827,15 @@ function bindEvents() {
 
   // controlli
   $('#btnShuffle').onclick = doShuffle;
+  $('#shMode').addEventListener('change', updateShuffleForm);
+  $('#shA').addEventListener('input', () => selectionInfo('#shA', '#shACount'));
+  $('#shB').addEventListener('input', () => selectionInfo('#shB', '#shBCount'));
+  $('#shAFromList').onclick = () => { $('#shA').value = selectionFromList(); selectionInfo('#shA', '#shACount'); };
+  $('#shBFromList').onclick = () => { $('#shB').value = selectionFromList(); selectionInfo('#shB', '#shBCount'); };
+  $('#swX').addEventListener('input', updateSwapInfo);
+  $('#swY').addEventListener('input', updateSwapInfo);
+  $('#swY').addEventListener('keydown', e => { if (e.key === 'Enter') doSwap(); });
+  $('#btnSwap').onclick = doSwap;
   $('#btnCompact').onclick = doCompact;
   $('#issueList').addEventListener('click', e => {
     const b = e.target.closest('button');

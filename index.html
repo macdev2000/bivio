@@ -150,9 +150,45 @@
           <div class="check-page">
             <div id="checkStats" class="stat-row"></div>
             <div class="numbering">
-              <h3>Numerazione</h3>
-              <p>Rimescolando, i paragrafi ricevono numeri casuali; restano fermi quelli segnati come <b>fissi</b> e il paragrafo iniziale. Bivio evita, dove può, i link fra numeri vicini.</p>
-              <button id="btnShuffle" class="primary">Rimescola la numerazione</button>
+              <h3>Rimescola</h3>
+              <div class="shuffle-form">
+                <label class="field-row" for="shMode"><span>Cosa rimescolare</span>
+                  <select id="shMode">
+                    <option value="all">Tutto il libro</option>
+                    <option value="within">I paragrafi del primo gruppo, tra loro</option>
+                    <option value="between">I paragrafi del primo gruppo con quelli del secondo</option>
+                    <option value="spread">I paragrafi del primo gruppo nel resto del libro</option>
+                  </select>
+                </label>
+                <div id="shGroupA" class="field-row group-row" hidden>
+                  <label for="shA">Primo gruppo</label>
+                  <div class="group-input">
+                    <input id="shA" spellcheck="false" placeholder="es. 10-40, 55, #bosco, lupo" />
+                    <button id="shAFromList" title="Usa i paragrafi mostrati ora nell'elenco a sinistra (dopo una ricerca o un filtro per hashtag)">Usa l'elenco</button>
+                  </div>
+                  <small id="shACount" class="sel-count"></small>
+                </div>
+                <div id="shGroupB" class="field-row group-row" hidden>
+                  <label for="shB">Secondo gruppo</label>
+                  <div class="group-input">
+                    <input id="shB" spellcheck="false" placeholder="es. 120-150, #castello" />
+                    <button id="shBFromList" title="Usa i paragrafi mostrati ora nell'elenco a sinistra">Usa l'elenco</button>
+                  </div>
+                  <small id="shBCount" class="sel-count"></small>
+                </div>
+                <p id="shHelp" class="sh-help"></p>
+                <div><button id="btnShuffle" class="primary">Rimescola</button></div>
+              </div>
+              <p class="sh-note">I paragrafi segnati come <b>fissi</b> ⚓ e quello iniziale non cambiano mai numero. Bivio evita, dove può, i link fra numeri vicini. Ogni operazione si può annullare con ↶.</p>
+              <h3>Scambia due paragrafi</h3>
+              <div class="swap-row">
+                <label for="swX">§</label><input id="swX" type="number" min="1" />
+                <span aria-hidden="true">⇄</span>
+                <label for="swY">§</label><input id="swY" type="number" min="1" />
+                <button id="btnSwap">Scambia</button>
+                <small id="swInfo" class="sel-count"></small>
+              </div>
+              <h3>Altro</h3>
               <button id="btnCompact">Togli i buchi nella numerazione</button>
             </div>
             <h3>Problemi</h3>
