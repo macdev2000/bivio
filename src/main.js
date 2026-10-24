@@ -889,6 +889,8 @@ function bindEvents() {
   $('#btnSave').onclick = () => saveCmd(false);
   $('#btnUndo').onclick = undo;
   $('#btnFocus').onclick = toggleFocus;
+  $('#appVersion').textContent = __APP_VERSION__;
+  $('#btnLicenses').onclick = showLicenses;
   $('#pText').addEventListener('mouseup', e => {
     if (!(isMac ? e.metaKey : e.ctrlKey)) return;
     const ta = e.target, pos = ta.selectionStart;
@@ -1098,6 +1100,21 @@ function startLink() {
   const sel = ta.value.slice(ta.selectionStart, ta.selectionEnd);
   insertAtCursor('[[' + M.slugify(sel).replace(/^paragrafo$/, '') + (sel ? '' : ''));
   updateAutocomplete();
+}
+
+async function showLicenses() {
+  let text = '';
+  try { text = await (await fetch('./licenze-terze-parti.txt')).text(); } catch { text = 'Elenco non disponibile.'; }
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-wrap';
+  wrap.innerHTML = `<div class="modal licenses-modal" role="dialog" aria-modal="true"><h2>Componenti di terze parti</h2><pre></pre><div class="modal-btns"><button class="primary">Chiudi</button></div></div>`;
+  wrap.querySelector('pre').textContent = text;
+  const close = () => { wrap.remove(); document.removeEventListener('keydown', esc, true); };
+  const esc = e => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
+  wrap.querySelector('.primary').onclick = close;
+  wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+  document.addEventListener('keydown', esc, true);
+  document.body.appendChild(wrap);
 }
 
 function toggleFocus() {

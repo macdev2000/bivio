@@ -1,6 +1,6 @@
 # Bivio
 
-Editor libero e multipiattaforma per scrivere **librogame** e racconti a bivi.
+Editor multipiattaforma per scrivere **librogame** e racconti a bivi.
 Funziona su **macOS, Windows e Linux**.
 
 ## Cosa fa
@@ -129,6 +129,6 @@ JSON leggibile, adatto anche a Git:
 
 ## Licenza
 
-MIT. Puoi usarlo, modificarlo e ridistribuirlo liberamente.
+© 2026 Andrew Jones. Tutti i diritti riservati. Il programma si può usare gratuitamente; il codice sorgente non può essere copiato, modificato o ridistribuito senza autorizzazione. Vedi `LICENSE`.
 
-Il carattere Crimson Text incluso per i PDF è distribuito con licenza SIL Open Font License (vedi `src/fonts/OFL-CrimsonText.txt`); Roboto con licenza Apache 2.0.
+Bivio include componenti open source (librerie e i caratteri Crimson Text e Roboto), elencati con le loro licenze in `THIRD_PARTY_LICENSES.txt`. Lo stesso elenco è incluso nell'app.

@@ -1,21 +1,24 @@
-MIT License
+Bivio — editor di librogame
+Copyright © 2026 Andrew Jones. Tutti i diritti riservati.
 
-Copyright (c) 2026 Andrew Jones
+1. Uso del programma
+   Il programma Bivio, nella forma distribuita dall'autore (installatori e app),
+   può essere scaricato e usato gratuitamente, anche per scrivere opere destinate
+   alla vendita. I libri e i testi creati con Bivio appartengono ai loro autori.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+2. Cosa non è consentito senza autorizzazione scritta dell'autore
+   - copiare, modificare, tradurre o adattare il codice sorgente, in tutto o in parte;
+   - creare programmi derivati da Bivio o dal suo codice;
+   - ridistribuire il programma o il codice sorgente, anche gratuitamente;
+   - vendere, noleggiare, concedere in licenza o includere Bivio in altri prodotti;
+   - rimuovere o alterare questa nota o le indicazioni di copyright.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+3. Componenti di terze parti
+   Bivio include componenti open source distribuiti con le proprie licenze,
+   elencati nel file THIRD_PARTY_LICENSES.txt. Quelle licenze si applicano
+   solo ai rispettivi componenti.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+4. Nessuna garanzia
+   Il programma è fornito “così com'è”, senza garanzie di alcun tipo, esplicite o
+   implicite. L'autore non risponde di danni derivanti dall'uso del programma,
+   compresa la perdita di dati: conserva sempre copie di sicurezza dei tuoi libri.
