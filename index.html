@@ -28,6 +28,7 @@
         <button id="btnUndo" class="icon" title="Annulla l'ultima operazione sulla struttura (rinomina, elimina, rimescola…)" disabled>↶</button>
         <button id="btnNew" title="Nuovo libro">Nuovo</button>
         <button id="btnOpen" title="Apri (Ctrl/⌘+O)">Apri</button>
+        <button id="btnImport" title="Importa un librogame da un file di testo (.txt)">Importa</button>
         <button id="btnSave" class="primary" title="Salva (Ctrl/⌘+S) · Salva con nome (Ctrl/⌘+Maiusc+S)">Salva</button>
         <div class="menu-wrap">
           <button id="btnExport" aria-haspopup="true">Esporta ▾</button>
@@ -36,7 +37,8 @@
             <button data-export="pdf">PDF <small>con link cliccabili</small></button>
             <button data-export="docx">Word (.docx) <small>con link cliccabili</small></button>
             <button data-export="epub">ePub <small>per e-reader</small></button>
-            <button data-export="html">Pagina web (.html)</button>
+            <button data-export="html">Pagina web (.html) <small>tutto in una pagina</small></button>
+            <button data-export="site">Sito web (.zip) <small>una pagina per paragrafo</small></button>
             <button data-export="txt">Testo semplice (.txt)</button>
             <hr />
             <div class="menu-label">Per la stampa</div>
@@ -87,6 +89,7 @@
               <button data-fmt="bold" title="Grassetto (Ctrl/⌘+B)"><b>G</b></button>
               <button data-fmt="italic" title="Corsivo (Ctrl/⌘+I)"><i>C</i></button>
               <button data-fmt="link" title="Inserisci link (Ctrl/⌘+K). Oppure scrivi [[">↪ Link</button>
+              <button data-fmt="newlink" title="Crea un paragrafo nuovo e inserisci qui il link, senza lasciare il paragrafo attuale (Ctrl/⌘+Maiusc+K)">↪ Link a nuovo §</button>
               <span class="hint">Scrivi <code>[[</code> per collegare un paragrafo · una riga vuota separa i capoversi</span>
               <span class="grow"></span>
               <span id="wordCount" class="hint"></span>
@@ -102,8 +105,8 @@
                 <h3>Entrate</h3>
                 <ul id="inLinks" class="link-list"></ul>
                 <details class="notes">
-                  <summary>Note per l'autore</summary>
-                  <textarea id="pNotes" placeholder="Appunti che non finiscono nel libro"></textarea>
+                  <summary>Promemoria</summary>
+                  <textarea id="pNotes" placeholder="Cose da fare o da ricontrollare in questo paragrafo. Non finiscono nel libro; li ritrovi tutti nella scheda Controlli."></textarea>
                 </details>
               </aside>
             </div>
@@ -193,6 +196,8 @@
             </div>
             <h3>Problemi</h3>
             <ul id="issueList" class="issue-list"></ul>
+            <div class="todo-head"><h3>Promemoria</h3><button id="btnTodoExport">Salva l'elenco (.txt)</button></div>
+            <ul id="todoList" class="issue-list"></ul>
           </div>
         </section>
 
@@ -204,6 +209,7 @@
             <div class="field"><label for="bIntro">Introduzione e regole <small>(compare prima del paragrafo 1; può contenere link)</small></label><textarea id="bIntro" rows="10"></textarea></div>
             <div class="row">
               <div class="field"><label for="bStart">Paragrafo iniziale</label><select id="bStart"></select></div>
+              <div class="field"><label for="bDist" title="Quando rimescoli, Bivio cerca di lasciare almeno questo numero di paragrafi fra due paragrafi collegati">Distanza minima nel rimescolamento</label><input id="bDist" type="number" min="0" max="50" /></div>
               <div class="field"><label for="bLinkFmt">Formato dei link</label><input id="bLinkFmt" title="{n} diventa il numero del paragrafo. Esempi: {n} · §{n} · vai al {n}" /></div>
               <div class="field"><label for="bPage" title="Formato della pagina nei file PDF e Word">Formato pagina</label><select id="bPage"><option>A5</option><option>A4</option><option>Letter</option></select></div>
               <div class="field"><label for="bFont">Carattere del PDF</label><select id="bFont" title="Il carattere viene incorporato nel PDF, come richiedono le tipografie. Crimson Text copre gli alfabeti latini; con altri caratteri Bivio passa da solo a Roboto"><option value="serif">Serif (Crimson Text)</option><option value="sans">Sans (Roboto)</option></select></div>

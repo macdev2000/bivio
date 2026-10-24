@@ -255,3 +255,29 @@ main { flex: 1; min-width: 0; position: relative; }
 .swap-row label { font: 600 16px var(--serif); color: var(--accent); }
 .swap-row input { width: 80px; }
 .swap-row span { color: var(--muted); font-size: 16px; padding: 0 4px; }
+
+/* Paragrafi vuoti e promemoria nell'elenco */
+.par-list li.empty .k { font-style: italic; color: var(--muted); }
+.par-list li.empty:not(.current) { background: color-mix(in srgb, var(--line) 35%, transparent); }
+.par-list li.current.empty .k { color: inherit; }
+.flag.todo { color: var(--warn); }
+.par-list li.current .flag.todo { color: inherit; }
+.todo-head { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; }
+.todo-head button { font-size: 12px; padding: 2px 9px; }
+.issue-list li.todo .lvl { color: var(--accent); font-family: var(--serif); font-size: 14px; text-transform: none; letter-spacing: 0; }
+.issue-list .muted-row { color: var(--muted); justify-content: center; font-size: 13px; }
+
+/* Finestra di importazione */
+.modal.import-modal { max-width: 620px; display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 32px); overflow-y: auto; }
+.import-modal h2 { margin: 0; font: 600 20px var(--serif); }
+.import-modal p { margin: 0; }
+.import-modal label { font-weight: 600; font-size: 13px; margin-top: 6px; }
+.import-modal label small { font-weight: 400; color: var(--muted); }
+.import-modal textarea { border: 1px solid var(--line); background: var(--panel-2); border-radius: 6px; padding: 8px; font: 13px/1.5 var(--mono); resize: vertical; }
+.imp-stats { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 13.5px; }
+.imp-stats .warn { color: var(--warn); }
+.imp-preview pre { white-space: pre-wrap; font: 13px/1.5 var(--serif); background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin: 4px 0 0; max-height: 160px; overflow-y: auto; }
+.imp-preview .muted { font-size: 12px; }
+.modal-btns .ghost { border-color: transparent; background: none; color: var(--muted); }
+.modal-btns .grow { flex: 1; }
+.modal-btns { align-items: center; }

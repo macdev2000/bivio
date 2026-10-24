@@ -27,7 +27,7 @@ export function newBook() {
     title: 'Nuovo librogame',
     author: '',
     intro: "Qui puoi scrivere le regole del gioco e l'antefatto. Il testo compare prima del paragrafo 1.",
-    settings: { start: start.id, linkFormat: '{n}', pageSize: 'A5', pdfFont: 'serif' },
+    settings: { start: start.id, linkFormat: '{n}', pageSize: 'A5', pdfFont: 'serif', minDistance: 2 },
     tagColors: { bosco: PALETTE[0] },
     paragraphs: [start, p2, p3],
   };
@@ -51,7 +51,7 @@ export function loadBook(json) {
   const b = typeof json === 'string' ? JSON.parse(json) : json;
   if (!b || b.format !== FORMAT || !Array.isArray(b.paragraphs)) throw new Error('Il file non è un librogame di Bivio.');
   if (b.version > FORMAT_VERSION) throw new Error('Il file è stato creato con una versione più recente di Bivio.');
-  b.settings = Object.assign({ linkFormat: '{n}', pageSize: 'A5', pdfFont: 'serif' }, b.settings || {});
+  b.settings = Object.assign({ linkFormat: '{n}', pageSize: 'A5', pdfFont: 'serif', minDistance: 2 }, b.settings || {});
   b.tagColors = b.tagColors || {};
   b.intro = b.intro || '';
   b.uuid = b.uuid || newUuid();
@@ -179,7 +179,9 @@ export function shuffle(book, { mode = 'all', a = null, b = null, attempts = 300
   const edges = [];
   for (const p of book.paragraphs) for (const k of out.get(p.id)) { const t = byKey.get(k); if (t && t !== p) edges.push([p.id, t.id]); }
   const base = new Map(book.paragraphs.map(p => [p.id, p.number]));
-  const scoreOf = asg => edges.reduce((s, [x, y]) => s + (Math.abs(asg.get(x) - asg.get(y)) <= 2 ? 1 : 0), 0);
+  // Due paragrafi collegati sono "troppo vicini" se fra i loro numeri ci sono meno di minDistance paragrafi
+  const near = Math.max(0, book.settings.minDistance ?? 2);
+  const scoreOf = asg => edges.reduce((s, [x, y]) => s + (Math.abs(asg.get(x) - asg.get(y)) <= near ? 1 : 0), 0);
 
   let best = null, bestScore = Infinity;
   for (let t = 0; t < attempts; t++) {

@@ -158,8 +158,10 @@ function renderSidebar() {
     const lvl = issueMap.get(p.id);
     if (lvl === 'error') flags.push('<span class="flag err" title="Link a un paragrafo inesistente">!</span>');
     else if (lvl === 'warn') flags.push('<span class="flag" title="Vedi Controlli">•</span>');
+    if (p.notes.trim()) flags.push('<span class="flag todo" title="Ha un promemoria">✎</span>');
     const dots = p.tags.slice(0, 4).map(t => `<span style="background:${M.tagColor(S.book, t)}" title="#${escapeHtml(t)}"></span>`).join('');
-    return `<li data-id="${p.id}" class="${p.id === S.currentId ? 'current' : ''}" role="option">
+    const cls = [p.id === S.currentId ? 'current' : '', p.text.trim() ? '' : 'empty', p.notes.trim() ? 'has-todo' : ''].filter(Boolean).join(' ');
+    return `<li data-id="${p.id}" class="${cls}" role="option" title="${p.text.trim() ? '' : 'Paragrafo vuoto'}">
       <span class="n">${p.number}</span><span class="k">${escapeHtml(p.key)}</span>
       <span class="dots">${dots}</span>${flags.join('')}</li>`;
   }).join('') || '<li class="muted" style="cursor:default">Nessun risultato</li>';
@@ -515,6 +517,19 @@ function renderCheck() {
       ${i.p ? `<button data-open="${i.p.id}">Apri</button>` : ''}
       ${i.kind === 'gaps' || i.kind === 'dupnum' ? `<button data-compact="1">Sistema</button>` : ''}
     </li>`).join('') : '<li class="ok">Nessun problema trovato. Ogni strada porta da qualche parte.</li>';
+  const todos = M.sorted(S.book).filter(p => p.notes.trim());
+  $('#btnTodoExport').disabled = !todos.length;
+  $('#todoList').innerHTML = todos.length ? todos.map(p => `<li class="todo">
+      <span class="lvl">§${p.number}</span><span class="msg"><b>${escapeHtml(p.key)}</b> · ${escapeHtml(p.notes.trim())}</span>
+      <button data-open="${p.id}">Apri</button></li>`).join('')
+    : '<li class="muted-row">Nessun promemoria. Li scrivi nel riquadro “Promemoria” accanto al testo di un paragrafo.</li>';
+}
+
+async function exportTodos() {
+  const todos = M.sorted(S.book).filter(p => p.notes.trim());
+  const text = `Promemoria · ${S.book.title}\n\n` + todos.map(p => `§${p.number} ${p.key}\n${p.notes.trim()}\n`).join('\n');
+  const r = await P.saveExport(text, { name: `${fileBase(S.book)}_promemoria.txt`, ext: 'txt', label: 'Testo', mime: 'text/plain' });
+  if (r) toast('Promemoria salvati');
 }
 
 const SHUFFLE_HELP = {
@@ -623,6 +638,7 @@ function renderBookSettings() {
   set('#bAuthor', b.author);
   set('#bIntro', b.intro);
   set('#bLinkFmt', b.settings.linkFormat);
+  set('#bDist', b.settings.minDistance ?? 2);
   $('#bPage').value = b.settings.pageSize;
   $('#bFont').value = b.settings.pdfFont || 'serif';
   $('#bStart').innerHTML = M.sorted(b).map(p => `<option value="${p.id}">${p.number} · ${escapeHtml(p.key)}</option>`).join('');
@@ -653,6 +669,82 @@ async function openCmd() {
   } catch (e) {
     toast(e.message || 'Impossibile aprire il file', true);
   }
+}
+
+/** Crea un paragrafo nuovo con il primo numero libero e inserisce il link al cursore, restando nel paragrafo attuale. */
+function linkToNewParagraph() {
+  const cur = current();
+  if (!cur) return;
+  const p = M.addParagraph(S.book, { key: `p${M.nextNumber(S.book)}` });
+  S.currentId = cur.id;
+  insertAtCursor(`[[${p.key}]]`);
+  touch({ structure: true });
+  toast(`Creato il paragrafo ${p.number} “${p.key}”: lo trovi nelle uscite a destra`);
+}
+
+// ---------- importazione da testo ----------
+async function importCmd() {
+  if (S.dirty && !(await P.confirmDialog("Ci sono modifiche non salvate. L'importazione apre un libro nuovo: continuare?"))) return;
+  let f;
+  try { f = await P.openTextFileBytes(); } catch (e) { toast('Impossibile leggere il file: ' + (e.message || e), true); return; }
+  if (!f) return;
+  const { importText, decodeText, DEFAULT_KEYWORDS } = await import('./import/text.js');
+  const text = decodeText(f.bytes);
+  const title = f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim() || 'Libro importato';
+  let keywords = DEFAULT_KEYWORDS;
+  try { keywords = localStorage.getItem('bivio:parole-rimando') || DEFAULT_KEYWORDS; } catch { /* nessun ricordo */ }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-wrap';
+  wrap.innerHTML = `<div class="modal import-modal" role="dialog" aria-modal="true" aria-labelledby="impTitle">
+    <h2 id="impTitle">Importa da testo</h2>
+    <p class="muted">${escapeHtml(f.name)}</p>
+    <div id="impStats" class="imp-stats"></div>
+    <label for="impKeywords">Espressioni che introducono un rimando <small>(una per riga; il numero che segue diventa un link)</small></label>
+    <textarea id="impKeywords" rows="7" spellcheck="false"></textarea>
+    <div class="imp-preview"><span class="muted">Anteprima del primo paragrafo</span><pre id="impPreview"></pre></div>
+    <div class="modal-btns"><button data-v="reset" class="ghost">Espressioni predefinite</button><span class="grow"></span><button data-v="0">Annulla</button><button class="primary" data-v="1">Importa</button></div>
+  </div>`;
+  document.body.appendChild(wrap);
+  const kw = wrap.querySelector('#impKeywords');
+  kw.value = keywords;
+  let result = null;
+  const run = () => {
+    try {
+      result = importText(text, { keywords: kw.value, title });
+      const s = result.stats;
+      wrap.querySelector('#impStats').innerHTML = `<b>${s.paragraphs}</b> paragrafi · <b>${s.links}</b> rimandi riconosciuti` +
+        (s.missing.length ? `<br><span class="warn">Rimandi a paragrafi che nel file non ci sono: ${s.missing.slice(0, 15).join(', ')}${s.missing.length > 15 ? '…' : ''}</span>` : '') +
+        (s.duplicates.length ? `<br><span class="warn">Numeri doppi (rinumerati in fondo, con un promemoria): ${s.duplicates.join(', ')}</span>` : '');
+      const first = [...result.book.paragraphs].sort((a, b) => a.number - b.number)[0];
+      wrap.querySelector('#impPreview').textContent = first ? `${first.number}\n${first.text.slice(0, 600)}` : '';
+      wrap.querySelector('.primary').disabled = false;
+    } catch (e) {
+      result = null;
+      wrap.querySelector('#impStats').innerHTML = `<span class="warn">${escapeHtml(e.message)}</span>`;
+      wrap.querySelector('#impPreview').textContent = '';
+      wrap.querySelector('.primary').disabled = true;
+    }
+  };
+  let t = null;
+  kw.addEventListener('input', () => { clearTimeout(t); t = setTimeout(run, 250); });
+  run();
+  const choice = await new Promise(resolve => {
+    wrap.addEventListener('click', e => {
+      const b = e.target.closest('[data-v]');
+      if (!b) return;
+      if (b.dataset.v === 'reset') { kw.value = DEFAULT_KEYWORDS; run(); return; }
+      resolve(b.dataset.v === '1');
+    });
+    wrap.addEventListener('keydown', e => { if (e.key === 'Escape') resolve(false); });
+  });
+  wrap.remove();
+  if (!choice || !result) return;
+  try { localStorage.setItem('bivio:parole-rimando', kw.value); } catch { /* facoltativo */ }
+  setBook(result.book, null, { dirty: true });
+  saveBackup();
+  setView('check');
+  toast(`Importati ${result.stats.paragraphs} paragrafi: controlla i problemi e poi salva`);
 }
 
 async function saveCmd(saveAs = false) {
@@ -698,6 +790,9 @@ async function exportCmd(kind) {
     } else if (kind === 'epub') {
       const { exportEpub } = await import('./export/epub.js');
       r = await P.saveExport(await exportEpub(S.book), { name: `${base}.epub`, ext: 'epub', label: 'ePub', mime: 'application/epub+zip' });
+    } else if (kind === 'site') {
+      const { exportSite } = await import('./export/site.js');
+      r = await P.saveExport(await exportSite(S.book), { name: `${base}_sito.zip`, ext: 'zip', label: 'Archivio ZIP', mime: 'application/zip' });
     } else if (kind === 'png') {
       if (S.view !== 'map') setView('map');
       await renderMapView();
@@ -727,6 +822,9 @@ function bindEvents() {
   $$('.tabs button').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
   $('#btnNew').onclick = newBookCmd;
   $('#btnOpen').onclick = openCmd;
+  $('#btnImport').onclick = importCmd;
+  $('#btnTodoExport').onclick = exportTodos;
+  $('#todoList').addEventListener('click', e => { const b = e.target.closest('[data-open]'); if (b) { setView('write'); openParagraph(b.dataset.open); } });
   $('#btnSave').onclick = () => saveCmd(false);
   $('#btnUndo').onclick = undo;
   $('#btnExport').onclick = e => { e.stopPropagation(); $('#exportMenu').hidden = !$('#exportMenu').hidden; };
@@ -777,6 +875,7 @@ function bindEvents() {
       else if (k === 'i') { wrapSelection('*'); e.preventDefault(); }
       else if (k === 'k') { startLink(); e.preventDefault(); }
     }
+    if (mod && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') { linkToNewParagraph(); e.preventDefault(); }
   });
   ta.addEventListener('keyup', e => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) updateAutocomplete(); });
   $('#ac').addEventListener('mousedown', e => { const d = e.target.closest('[data-i]'); if (d) { e.preventDefault(); chooseAc(+d.dataset.i); } });
@@ -784,7 +883,7 @@ function bindEvents() {
   $$('.ed-toolbar [data-fmt]').forEach(b => b.addEventListener('mousedown', e => e.preventDefault()));
   $$('.ed-toolbar [data-fmt]').forEach(b => b.addEventListener('click', () => {
     const f = b.dataset.fmt;
-    if (f === 'bold') wrapSelection('**'); else if (f === 'italic') wrapSelection('*'); else startLink();
+    if (f === 'bold') wrapSelection('**'); else if (f === 'italic') wrapSelection('*'); else if (f === 'newlink') linkToNewParagraph(); else startLink();
   }));
 
   $('#pKey').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commitKey(); $('#pText').focus(); } if (e.key === 'Escape') { $('#pKey').value = current()?.key || ''; $('#pText').focus(); } });
@@ -849,6 +948,7 @@ function bindEvents() {
   $('#bTitle').addEventListener('input', e => { S.book.title = e.target.value; touch(); });
   $('#bAuthor').addEventListener('input', e => { S.book.author = e.target.value; touch(); });
   $('#bIntro').addEventListener('input', e => { S.book.intro = e.target.value; touch(); });
+  $('#bDist').addEventListener('change', e => { const v = Math.max(0, Math.min(50, parseInt(e.target.value, 10) || 0)); S.book.settings.minDistance = v; e.target.value = v; touch(); });
   $('#bLinkFmt').addEventListener('input', e => { S.book.settings.linkFormat = e.target.value.includes('{n}') ? e.target.value : '{n}'; touch(); });
   $('#bPage').addEventListener('change', e => { S.book.settings.pageSize = e.target.value; touch(); });
   $('#bFont').addEventListener('change', e => { S.book.settings.pdfFont = e.target.value; touch(); });
@@ -862,7 +962,7 @@ function bindEvents() {
     if (mod && k === 's') { e.preventDefault(); saveCmd(e.shiftKey); }
     else if (mod && k === 'o') { e.preventDefault(); openCmd(); }
     else if (mod && e.shiftKey && k === 'n') { e.preventDefault(); setView('write'); addParagraph(); }
-    else if (mod && k === 'f') { e.preventDefault(); $('#search').focus(); $('#search').select(); }
+    else if (mod && (k === 'f' || k === 'g')) { e.preventDefault(); $('#search').focus(); $('#search').select(); }
     else if (mod && !e.shiftKey && /^[1-5]$/.test(e.key)) { e.preventDefault(); setView(['write', 'map', 'play', 'check', 'book'][+e.key - 1]); }
     else if (e.altKey && e.key === 'ArrowLeft' && S.view === 'write') { e.preventDefault(); navHistory(-1); }
     else if (e.altKey && e.key === 'ArrowRight' && S.view === 'write') { e.preventDefault(); navHistory(1); }

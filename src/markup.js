@@ -8,7 +8,7 @@ const LINK_RE = /\[\[([^\]|]+?)(?:\|([^\]]*))?\]\]/g;
 export function extractLinks(text) {
   const out = [];
   const seen = new Set();
-  for (const m of (text || '').matchAll(LINK_RE)) {
+  for (const m of (text || '').matchAll(new RegExp(LINK_RE.source, 'g'))) {
     const key = m[1].trim();
     if (key && !seen.has(key)) { seen.add(key); out.push(key); }
   }
@@ -17,7 +17,7 @@ export function extractLinks(text) {
 
 /** Sostituisce i link a `oldKey` con `newKey` (usato quando si rinomina un paragrafo). */
 export function renameLinks(text, oldKey, newKey) {
-  return (text || '').replace(LINK_RE, (all, key, label) => {
+  return (text || '').replace(new RegExp(LINK_RE.source, 'g'), (all, key, label) => {
     if (key.trim() !== oldKey) return all;
     return label !== undefined ? `[[${newKey}|${label}]]` : `[[${newKey}]]`;
   });
@@ -46,8 +46,10 @@ function parseInline(block) {
       buf += block[i + 1]; i += 2; continue;
     }
     if (c === '[' && block[i + 1] === '[') {
-      LINK_RE.lastIndex = i;
-      const m = LINK_RE.exec(block);
+      // Copia locale: non si deve toccare lo stato (lastIndex) dell'espressione condivisa
+      const re = new RegExp(LINK_RE.source, 'g');
+      re.lastIndex = i;
+      const m = re.exec(block);
       if (m && m.index === i) {
         flush();
         runs.push({ text: '', bold, italic, link: m[1].trim(), label: m[2] !== undefined ? m[2] : null });

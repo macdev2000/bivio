@@ -39,6 +39,27 @@ export async function openBookFile() {
   });
 }
 
+/** Sceglie un file di testo e ne restituisce i byte: {name, bytes} oppure null. */
+export async function openTextFileBytes() {
+  if (isDesktop) {
+    const { dialog, fs } = await T();
+    const path = await dialog.open({ multiple: false, filters: [{ name: 'Testo', extensions: ['txt', 'text', 'md'] }] });
+    if (!path) return null;
+    return { name: basename(path), bytes: await fs.readFile(path) };
+  }
+  return new Promise(resolve => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt,.text,.md,text/plain';
+    input.onchange = async () => {
+      const f = input.files[0];
+      resolve(f ? { name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) } : null);
+    };
+    input.addEventListener('cancel', () => resolve(null));
+    input.click();
+  });
+}
+
 /** Salva il libro. Con `path` sovrascrive, altrimenti chiede dove. Restituisce il percorso o null. */
 export async function saveBookFile(text, { path = null, suggestedName = 'librogame.bivio' } = {}) {
   if (isDesktop) {

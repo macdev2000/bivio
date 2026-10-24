@@ -17,6 +17,10 @@ Funziona su **macOS, Windows e Linux**.
 - **Controlli**: link a paragrafi inesistenti, paragrafi vuoti, vicoli ciechi, paragrafi irraggiungibili, buchi nella numerazione.
 - **Esporta** in PDF, Word (.docx), ePub e HTML con i link interni cliccabili, oppure in testo semplice.
 - **Esporta per la stampa** in Word (.docx) e PDF senza link e tutto in nero, per l'edizione cartacea. Il file Word usa stili con nome (“Numero paragrafo”, “Testo librogame”) per cambiare l'impaginazione di tutto il libro in un colpo solo.
+- **Importa** un librogame da un file di testo: ogni paragrafo comincia con il suo numero da solo su una riga (`1` oppure `1.`); i rimandi come “vai al 37” o “turn to 160” diventano link. Le espressioni riconosciute si possono modificare.
+- **Link a un paragrafo nuovo** con ⇧⌘K / Ctrl+Maiusc+K: crea il paragrafo con il primo numero libero e ne inserisce il link, senza interrompere la scrittura.
+- **Promemoria** per ogni paragrafo (✎ nell'elenco), raccolti nella scheda Controlli e salvabili in un file di testo. I paragrafi vuoti sono evidenziati nell'elenco.
+- **Sito web**: esportazione in un archivio .zip con una pagina per paragrafo.
 - **Annulla** (↶) per le operazioni sulla struttura: rinomina, eliminazione, rimescolamento, cambio di numero.
 - Al riavvio riapre l'ultima sessione, anche se non era stata salvata.
 
@@ -39,7 +43,8 @@ Il formato dei link si cambia nella scheda **Libro** (es. `§{n}`).
 | Salva / Salva con nome | ⌘S / ⇧⌘S | Ctrl+S / Ctrl+Maiusc+S |
 | Apri | ⌘O | Ctrl+O |
 | Nuovo paragrafo | ⇧⌘N | Ctrl+Maiusc+N |
-| Cerca | ⌘F | Ctrl+F |
+| Cerca / vai a un paragrafo | ⌘F o ⌘G | Ctrl+F o Ctrl+G |
+| Link a un paragrafo nuovo | ⇧⌘K | Ctrl+Maiusc+K |
 | Grassetto, corsivo, link | ⌘B, ⌘I, ⌘K | Ctrl+B, Ctrl+I, Ctrl+K |
 | Schede Scrivi…Libro | ⌘1…⌘5 | Ctrl+1…Ctrl+5 |
 | Paragrafo precedente / successivo visitato | ⌥← / ⌥→ | Alt+← / Alt+→ |
